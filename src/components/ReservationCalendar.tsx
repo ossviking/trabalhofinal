@@ -1,0 +1,219 @@
+import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, MapPin } from 'lucide-react';
+import { useReservation } from '../context/ReservationContext';
+
+const ReservationCalendar = () => {
+  const { reservations, resources } = useReservation();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedView, setSelectedView] = useState('month');
+
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+
+    const days = [];
+    
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+    
+    // Add all days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(new Date(year, month, day));
+    }
+    
+    return days;
+  };
+
+  const getReservationsForDate = (date: Date) => {
+    if (!date) return [];
+    
+    return reservations.filter(reservation => {
+      const reservationDate = new Date(reservation.startDate);
+      return reservationDate.toDateString() === date.toDateString();
+    });
+  };
+
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    const newDate = new Date(currentDate);
+    if (direction === 'prev') {
+      newDate.setMonth(newDate.getMonth() - 1);
+    } else {
+      newDate.setMonth(newDate.getMonth() + 1);
+    }
+    setCurrentDate(newDate);
+  };
+
+  const isToday = (date: Date) => {
+    if (!date) return false;
+    const today = new Date();
+    return date.toDateString() === today.toDateString();
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved': return 'bg-green-500';
+      case 'pending': return 'bg-yellow-500';
+      case 'rejected': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const days = getDaysInMonth(currentDate);
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Calendário de Reservas</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-2">Visualize e gerencie suas reservas</p>
+          </div>
+          <button className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Nova Reserva</span>
+            <span className="sm:hidden">Nova</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        {/* Calendar Header */}
+        <div className="p-4 sm:p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => navigateMonth('prev')}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+              >
+                <ChevronLeft className="h-5 w-5 text-gray-600" />
+              </button>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+                {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              </h2>
+              <button
+                onClick={() => navigateMonth('next')}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+              >
+                <ChevronRight className="h-5 w-5 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="hidden sm:flex space-x-2">
+              {[
+                { id: 'month', label: 'Mês' },
+                { id: 'week', label: 'Semana' },
+                { id: 'day', label: 'Dia' }
+              ].map((view) => (
+                <button
+                  key={view.id}
+                  onClick={() => setSelectedView(view.id)}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                    selectedView === view.id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {view.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Calendar Grid */}
+        <div className="p-4 sm:p-6">
+          {/* Day Headers */}
+          <div className="grid grid-cols-7 gap-1 mb-4">
+            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day, index) => (
+              <div key={day} className="p-1 sm:p-2 text-center text-xs sm:text-sm font-medium text-gray-600">
+                <span className="hidden sm:inline">{day}</span>
+                <span className="sm:hidden">{['D', 'S', 'T', 'Q', 'Q', 'S', 'S'][index]}</span>
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar Days */}
+          <div className="grid grid-cols-7 gap-1">
+            {days.map((date, index) => {
+              const dayReservations = getReservationsForDate(date);
+              
+              return (
+                <div
+                  key={index}
+                  className={`min-h-16 sm:min-h-24 p-1 sm:p-2 border border-gray-100 rounded-lg transition-colors duration-200 ${
+                    date ? 'hover:bg-gray-50 cursor-pointer' : ''
+                  } ${isToday(date) ? 'bg-blue-50 border-blue-200' : ''}`}
+                >
+                  {date && (
+                    <>
+                      <div className={`text-xs sm:text-sm font-medium mb-1 ${
+                        isToday(date) ? 'text-blue-600' : 'text-gray-900'
+                      }`}>
+                        {date.getDate()}
+                      </div>
+                      
+                      <div className="space-y-1">
+                        {dayReservations.slice(0, window.innerWidth < 640 ? 1 : 2).map((reservation) => {
+                          const resource = resources.find(r => r.id === reservation.resourceId);
+                          return (
+                            <div
+                              key={reservation.id}
+                              className={`text-xs p-1 rounded text-white truncate ${getStatusColor(reservation.status)}`}
+                              title={`${resource?.name} - ${reservation.purpose}`}
+                            >
+                              <span className="hidden sm:inline">{resource?.name}</span>
+                              <span className="sm:hidden">{resource?.name?.substring(0, 8)}...</span>
+                            </div>
+                          );
+                        })}
+                        
+                        {dayReservations.length > (window.innerWidth < 640 ? 1 : 2) && (
+                          <div className="text-xs text-gray-600 text-center">
+                            +{dayReservations.length - (window.innerWidth < 640 ? 1 : 2)}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Legenda</h3>
+        <div className="flex flex-wrap gap-2 sm:gap-4">
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-green-500 rounded"></div>
+            <span className="text-xs sm:text-sm text-gray-600">Aprovado</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-yellow-500 rounded"></div>
+            <span className="text-xs sm:text-sm text-gray-600">Pendente</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-red-500 rounded"></div>
+            <span className="text-xs sm:text-sm text-gray-600">Rejeitado</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ReservationCalendar;

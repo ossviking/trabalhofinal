@@ -1,0 +1,304 @@
+import React, { useState } from 'react';
+import { Search, Plus, Edit, Trash2, Shield, User, Mail, Calendar } from 'lucide-react';
+import { usersService } from '../services/database';
+
+const UserManagement = () => {
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedRole, setSelectedRole] = useState('all');
+  const [showAddUser, setShowAddUser] = useState(false);
+
+  // Load users from database
+  React.useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        setLoading(true);
+        const usersData = await usersService.getAll();
+        
+        // Transform database users to match component expectations
+        const transformedUsers = usersData.map(user => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          department: user.department,
+          joinDate: user.created_at.split('T')[0], // Convert to date string
+          lastLogin: user.updated_at.split('T')[0], // Use updated_at as proxy for last login
+          status: 'active', // Default status since we don't have this field in DB
+          reservations: 0 // TODO: Calculate actual reservation count
+        }));
+        
+        setUsers(transformedUsers);
+      } catch (error) {
+        console.error('Error loading users:', error);
+        alert('Erro ao carregar usuários. Tente novamente.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUsers();
+  }, []);
+
+  const roleOptions = [
+    { id: 'all', name: 'Todos os Papéis' },
+    { id: 'student', name: 'Estudantes' },
+    { id: 'faculty', name: 'Professores' },
+    { id: 'admin', name: 'Administradores' }
+  ];
+
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.department.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRole = selectedRole === 'all' || user.role === selectedRole;
+    
+    return matchesSearch && matchesRole;
+  });
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'admin': return 'bg-purple-100 text-purple-800';
+      case 'faculty': return 'bg-blue-100 text-blue-800';
+      case 'student': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'inactive': return 'bg-red-100 text-red-800';
+      case 'suspended': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'admin': return Shield;
+      case 'faculty': return User;
+      case 'student': return User;
+      default: return User;
+    }
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Gerenciamento de Usuários</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-2">Gerencie usuários do sistema e suas permissões</p>
+          </div>
+          <button
+            onClick={() => setShowAddUser(true)}
+            className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Adicionar Usuário</span>
+            <span className="sm:hidden">Adicionar</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="bg-blue-100 p-2 sm:p-3 rounded-xl">
+              <User className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+            </div>
+            <div className="ml-3 sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Total de Usuários</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{users.length}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="bg-green-100 p-2 sm:p-3 rounded-xl">
+              <User className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
+            </div>
+            <div className="ml-3 sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Estudantes</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{users.filter(u => u.role === 'student').length}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="bg-purple-100 p-2 sm:p-3 rounded-xl">
+              <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
+            </div>
+            <div className="ml-3 sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Professores</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{users.filter(u => u.role === 'faculty').length}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="bg-red-100 p-2 sm:p-3 rounded-xl">
+              <User className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" />
+            </div>
+            <div className="ml-3 sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Usuários Ativos</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{users.filter(u => u.status === 'active').length}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0 lg:space-x-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar usuários..."
+              className="w-full pl-10 pr-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <select
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value)}
+            className="px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            {roleOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {loading && (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando usuários...</p>
+        </div>
+      )}
+
+      {/* Users Table */}
+      {!loading && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Usuário
+                </th>
+                <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                  Papel
+                </th>
+                <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                  Departamento
+                </th>
+                <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                  Reservas
+                </th>
+                <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                  Último Login
+                </th>
+                <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="text-left px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ações
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredUsers.map((user) => {
+                const RoleIcon = getRoleIcon(user.role);
+                return (
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-8 w-8 sm:h-10 sm:w-10 bg-blue-600 rounded-full flex items-center justify-center">
+                          <span className="text-white text-xs sm:text-sm font-medium">
+                            {user.name.split(' ').map(n => n[0]).join('')}
+                          </span>
+                        </div>
+                        <div className="ml-3 sm:ml-4">
+                          <div className="text-xs sm:text-sm font-medium text-gray-900">{user.name}</div>
+                          <div className="text-xs sm:text-sm text-gray-500 flex items-center sm:hidden">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)} mr-2`}>
+                              {user.role}
+                            </span>
+                          </div>
+                          <div className="text-xs sm:text-sm text-gray-500 flex items-center hidden sm:flex">
+                            <Mail className="h-3 w-3 mr-1" />
+                            <span className="truncate max-w-xs">{user.email}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap hidden sm:table-cell">
+                      <div className="flex items-center">
+                        <RoleIcon className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
+                          {user.role}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-600 hidden md:table-cell">
+                      {user.department}
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-600 hidden lg:table-cell">
+                      {user.reservations}
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-600 hidden lg:table-cell">
+                      <div className="flex items-center">
+                        <Calendar className="h-3 w-3 mr-1" />
+                        {new Date(user.lastLogin).toLocaleDateString()}
+                      </div>
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.status)}`}>
+                        {user.status}
+                      </span>
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        <button className="text-blue-600 hover:text-blue-900 p-1">
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button className="text-red-600 hover:text-red-900 p-1">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        </div>
+      )}
+
+      {!loading && filteredUsers.length === 0 && (
+        <div className="text-center py-12">
+          <User className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum usuário encontrado</h3>
+          <p className="text-gray-600">Tente ajustar seus critérios de busca</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default UserManagement;
