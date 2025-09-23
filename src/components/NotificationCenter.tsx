@@ -1,59 +1,92 @@
 import React, { useState } from 'react';
 import { Bell, X, Check, Clock, AlertTriangle, Info } from 'lucide-react';
+import { useReservation } from '../context/ReservationContext';
+import { useUser } from '../context/UserContext';
 
-interface Notification {
-  id: string;
-  type: 'approval' | 'reminder' | 'update' | 'warning';
-  title: string;
-  message: string;
-  timestamp: string;
-  read: boolean;
-  actionRequired?: boolean;
-}
 
 const NotificationCenter = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      type: 'approval',
-      title: 'Reserva Aprovada',
-      message: 'Sua solicitação para a Sala de Conferência A foi aprovada para 15 de fev, 2024',
-      timestamp: '2024-02-10T14:30:00Z',
-      read: false,
-      actionRequired: false
-    },
-    {
-      id: '2',
-      type: 'reminder',
-      title: 'Reserva Próxima',
-      message: 'Sua reserva para a Câmera Canon EOS R5 começa em 2 horas',
-      timestamp: '2024-02-10T12:00:00Z',
-      read: false,
-      actionRequired: true
-    },
-    {
-      id: '3',
-      type: 'warning',
-      title: 'Devolução de Equipamento Atrasada',
-      message: 'MacBook Pro 16" deveria ter sido devolvido ontem. Por favor, devolva imediatamente.',
-      timestamp: '2024-02-09T09:00:00Z',
-      read: true,
-      actionRequired: true
-    }
-  ]);
+  const { reservations, resources } = useReservation();
+  const { user } = useUser();
+  const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
 
+  // Generate dynamic notifications based on user's reservations
+  const generateNotifications = () => {
+    if (!user) return [];
+    
+    const userReservations = reservations.filter(r => r.userId === user.id);
+    const notifications: any[] = [];
+    
+    // Approved reservations
+    userReservations
+      .filter(r => r.status === 'approved')
+      .slice(0, 3)
+      .forEach(reservation => {
+        const resource = resources.find(r => r.id === reservation.resourceId);
+        notifications.push({
+          id: `approval-${reservation.id}`,
+          type: 'approval',
+          title: 'Reserva Aprovada',
+          message: `Sua solicitação para ${resource?.name || 'recurso'} foi aprovada`,
+          timestamp: reservation.createdAt,
+          read: readNotifications.has(`approval-${reservation.id}`),
+          actionRequired: false
+        });
+      });
+    
+    // Pending reservations
+    userReservations
+      .filter(r => r.status === 'pending')
+      .slice(0, 2)
+      .forEach(reservation => {
+        const resource = resources.find(r => r.id === reservation.resourceId);
+        notifications.push({
+          id: `pending-${reservation.id}`,
+          type: 'reminder',
+          title: 'Reserva Pendente',
+          message: `Sua solicitação para ${resource?.name || 'recurso'} está aguardando aprovação`,
+          timestamp: reservation.createdAt,
+          read: readNotifications.has(`pending-${reservation.id}`),
+          actionRequired: false
+        });
+      });
+    
+    // Upcoming reservations (next 24 hours)
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    
+    userReservations
+      .filter(r => {
+        const startDate = new Date(r.startDate);
+        return r.status === 'approved' && startDate > now && startDate <= tomorrow;
+      })
+      .slice(0, 2)
+      .forEach(reservation => {
+        const resource = resources.find(r => r.id === reservation.resourceId);
+        const startDate = new Date(reservation.startDate);
+        const hoursUntil = Math.round((startDate.getTime() - now.getTime()) / (1000 * 60 * 60));
+        
+        notifications.push({
+          id: `reminder-${reservation.id}`,
+          type: 'reminder',
+          title: 'Reserva Próxima',
+          message: `Sua reserva para ${resource?.name || 'recurso'} começa em ${hoursUntil} hora${hoursUntil !== 1 ? 's' : ''}`,
+          timestamp: reservation.createdAt,
+          read: readNotifications.has(`reminder-${reservation.id}`),
+          actionRequired: true
+        });
+      });
+    
+    return notifications.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  };
   const [isOpen, setIsOpen] = useState(false);
+  const notifications = generateNotifications();
 
   const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(notif => 
-        notif.id === id ? { ...notif, read: true } : notif
-      )
-    );
+    setReadNotifications(prev => new Set([...prev, id]));
   };
 
   const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(notif => notif.id !== id));
+    setReadNotifications(prev => new Set([...prev, id]));
   };
 
   const getNotificationIcon = (type: string) => {

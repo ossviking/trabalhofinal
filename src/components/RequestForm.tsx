@@ -3,10 +3,12 @@ import { Calendar, Clock, FileText, Send, AlertCircle } from 'lucide-react';
 import { useReservation } from '../context/ReservationContext';
 import { useUser } from '../context/UserContext';
 import { reservationsService } from '../services/database';
+import { useNavigate } from 'react-router-dom';
 
 const RequestForm = () => {
   const { resources, addReservation } = useReservation();
   const { user } = useUser();
+  const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
     resourceId: '',
@@ -25,7 +27,41 @@ const RequestForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingConflict, setIsCheckingConflict] = useState(false);
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
+  // Load draft from localStorage on component mount
+  React.useEffect(() => {
+    const savedDraft = localStorage.getItem(`reservation_draft_${user?.id}`);
+    if (savedDraft) {
+      try {
+        const draftData = JSON.parse(savedDraft);
+        setFormData(draftData);
+      } catch (error) {
+        console.error('Error loading draft:', error);
+      }
+    }
+  }, [user?.id]);
+
+  const saveDraft = async () => {
+    if (!user) return;
+    
+    setIsSavingDraft(true);
+    try {
+      localStorage.setItem(`reservation_draft_${user.id}`, JSON.stringify(formData));
+      alert('Rascunho salvo com sucesso!');
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      alert('Erro ao salvar rascunho.');
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  const clearDraft = () => {
+    if (user) {
+      localStorage.removeItem(`reservation_draft_${user.id}`);
+    }
+  };
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -159,6 +195,7 @@ const RequestForm = () => {
       await addReservation(reservation);
       
       // Reset form
+      clearDraft();
       setFormData({
         resourceId: '',
         startDate: '',
@@ -416,9 +453,11 @@ const RequestForm = () => {
         <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
           <button
             type="button"
+            onClick={saveDraft}
+            disabled={isSavingDraft}
             className="px-4 sm:px-6 py-2 text-sm sm:text-base border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200"
           >
-            Salvar como Rascunho
+            {isSavingDraft ? 'Salvando...' : 'Salvar como Rascunho'}
           </button>
           <button
             type="submit"

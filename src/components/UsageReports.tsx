@@ -7,15 +7,79 @@ const UsageReports = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
+  // Filter data based on selected period
+  const getFilteredReservations = () => {
+    const now = new Date();
+    let startDate = new Date();
+    
+    switch (selectedPeriod) {
+      case 'week':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      case 'quarter':
+        startDate.setMonth(now.getMonth() - 3);
+        break;
+      case 'year':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      default:
+        startDate.setMonth(now.getMonth() - 1);
+    }
+    
+    return reservations.filter(reservation => {
+      const reservationDate = new Date(reservation.createdAt);
+      return reservationDate >= startDate && reservationDate <= now;
+    });
+  };
+
+  const exportData = () => {
+    const filteredReservations = getFilteredReservations();
+    const exportData = {
+      period: selectedPeriod,
+      generatedAt: new Date().toISOString(),
+      summary: {
+        totalReservations: filteredReservations.length,
+        approvedReservations: filteredReservations.filter(r => r.status === 'approved').length,
+        rejectedReservations: filteredReservations.filter(r => r.status === 'rejected').length,
+        approvalRate: filteredReservations.length > 0 ? 
+          (filteredReservations.filter(r => r.status === 'approved').length / filteredReservations.length * 100).toFixed(1) + '%' : '0%'
+      },
+      reservations: filteredReservations.map(reservation => ({
+        id: reservation.id,
+        resourceName: resources.find(r => r.id === reservation.resourceId)?.name || 'Unknown',
+        purpose: reservation.purpose,
+        status: reservation.status,
+        startDate: reservation.startDate,
+        endDate: reservation.endDate,
+        createdAt: reservation.createdAt
+      })),
+      resourceUsage: resourceUsage
+    };
+    
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `usage-report-${selectedPeriod}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
   // Calculate usage statistics
-  const totalReservations = reservations.length;
-  const approvedReservations = reservations.filter(r => r.status === 'approved').length;
-  const rejectedReservations = reservations.filter(r => r.status === 'rejected').length;
+  const filteredReservations = getFilteredReservations();
+  const totalReservations = filteredReservations.length;
+  const approvedReservations = filteredReservations.filter(r => r.status === 'approved').length;
+  const rejectedReservations = filteredReservations.filter(r => r.status === 'rejected').length;
   const approvalRate = totalReservations > 0 ? (approvedReservations / totalReservations * 100) : 0;
 
   // Resource utilization
   const resourceUsage = resources.map(resource => {
-    const usage = reservations.filter(r => r.resourceId === resource.id && r.status === 'approved').length;
+    const usage = filteredReservations.filter(r => r.resourceId === resource.id && r.status === 'approved').length;
     return {
       resource: resource.name,
       category: resource.category,
@@ -81,6 +145,12 @@ const UsageReports = () => {
               <option value="year">Este Ano</option>
             </select>
             <button className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center space-x-2 text-sm">
+              <Download className="h-4 w-4" />
+              <span>Exportar</span>
+            <button 
+              onClick={exportData}
+              className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center space-x-2 text-sm"
+            >
               <Download className="h-4 w-4" />
               <span>Exportar</span>
             </button>

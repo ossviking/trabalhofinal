@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, MapPin } from 'lucide-react';
 import { useReservation } from '../context/ReservationContext';
+import { useNavigate } from 'react-router-dom';
 
 const ReservationCalendar = () => {
   const { reservations, resources } = useReservation();
+  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedView, setSelectedView] = useState('month');
 
@@ -79,7 +81,10 @@ const ReservationCalendar = () => {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Calendário de Reservas</h1>
             <p className="text-sm sm:text-base text-gray-600 mt-2">Visualize e gerencie suas reservas</p>
           </div>
-          <button className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2">
+          <button 
+            onClick={() => navigate('/request')}
+            className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
+          >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Nova Reserva</span>
             <span className="sm:hidden">Nova</span>
@@ -112,8 +117,7 @@ const ReservationCalendar = () => {
             <div className="hidden sm:flex space-x-2">
               {[
                 { id: 'month', label: 'Mês' },
-                { id: 'week', label: 'Semana' },
-                { id: 'day', label: 'Dia' }
+                { id: 'week', label: 'Semana' }
               ].map((view) => (
                 <button
                   key={view.id}
@@ -135,24 +139,23 @@ const ReservationCalendar = () => {
         <div className="p-4 sm:p-6">
           {/* Day Headers */}
           <div className="grid grid-cols-7 gap-1 mb-4">
-            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day, index) => (
+            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
               <div key={day} className="p-1 sm:p-2 text-center text-xs sm:text-sm font-medium text-gray-600">
                 <span className="hidden sm:inline">{day}</span>
-                <span className="sm:hidden">{['D', 'S', 'T', 'Q', 'Q', 'S', 'S'][index]}</span>
-                {day}
+                <span className="sm:hidden">{day.charAt(0)}</span>
               </div>
             ))}
           </div>
 
           {/* Calendar Days */}
-          <div className="grid grid-cols-7 gap-1">
+          <div className={`grid grid-cols-7 gap-1 ${selectedView === 'week' ? 'grid-rows-1' : ''}`}>
             {days.map((date, index) => {
               const dayReservations = getReservationsForDate(date);
               
               return (
                 <div
                   key={index}
-                  className={`min-h-16 sm:min-h-24 p-1 sm:p-2 border border-gray-100 rounded-lg transition-colors duration-200 ${
+                  className={`${selectedView === 'week' ? 'min-h-32 sm:min-h-40' : 'min-h-16 sm:min-h-24'} p-1 sm:p-2 border border-gray-100 rounded-lg transition-colors duration-200 ${
                     date ? 'hover:bg-gray-50 cursor-pointer' : ''
                   } ${isToday(date) ? 'bg-blue-50 border-blue-200' : ''}`}
                 >
@@ -165,7 +168,7 @@ const ReservationCalendar = () => {
                       </div>
                       
                       <div className="space-y-1">
-                        {dayReservations.slice(0, window.innerWidth < 640 ? 1 : 2).map((reservation) => {
+                        {dayReservations.slice(0, selectedView === 'week' ? 4 : (window.innerWidth < 640 ? 1 : 2)).map((reservation) => {
                           const resource = resources.find(r => r.id === reservation.resourceId);
                           return (
                             <div
@@ -179,9 +182,9 @@ const ReservationCalendar = () => {
                           );
                         })}
                         
-                        {dayReservations.length > (window.innerWidth < 640 ? 1 : 2) && (
+                        {dayReservations.length > (selectedView === 'week' ? 4 : (window.innerWidth < 640 ? 1 : 2)) && (
                           <div className="text-xs text-gray-600 text-center">
-                            +{dayReservations.length - (window.innerWidth < 640 ? 1 : 2)}
+                            +{dayReservations.length - (selectedView === 'week' ? 4 : (window.innerWidth < 640 ? 1 : 2))}
                           </div>
                         )}
                       </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Wrench, AlertTriangle, CheckCircle, Clock, Plus } from 'lucide-react';
+import { Calendar, Wrench, AlertTriangle, CheckCircle, Clock, Plus, X, Save } from 'lucide-react';
 import { useReservation } from '../context/ReservationContext';
 
 interface MaintenanceTask {
@@ -18,10 +18,23 @@ interface MaintenanceTask {
 }
 
 const MaintenanceScheduler = () => {
-  const { resources, maintenanceTasks, updateMaintenanceTaskStatus } = useReservation();
+  const { resources, maintenanceTasks, updateMaintenanceTaskStatus, addMaintenanceTask } = useReservation();
 
   const [showAddTask, setShowAddTask] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newTaskData, setNewTaskData] = useState({
+    resourceId: '',
+    type: 'routine' as 'routine' | 'repair' | 'inspection' | 'upgrade',
+    title: '',
+    description: '',
+    scheduledDate: '',
+    estimatedDuration: 1,
+    priority: 'medium' as 'low' | 'medium' | 'high' | 'critical',
+    assignedTo: '',
+    cost: '',
+    notes: ''
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -62,6 +75,51 @@ const MaintenanceScheduler = () => {
       updateMaintenanceTaskStatus(taskId, newStatus);
     } catch (error) {
       alert('Erro ao atualizar status da tarefa. Tente novamente.');
+    }
+  };
+
+  const handleAddTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const taskData = {
+        id: crypto.randomUUID(),
+        resourceId: newTaskData.resourceId,
+        type: newTaskData.type,
+        title: newTaskData.title,
+        description: newTaskData.description,
+        scheduledDate: newTaskData.scheduledDate,
+        estimatedDuration: newTaskData.estimatedDuration,
+        status: 'scheduled' as const,
+        priority: newTaskData.priority,
+        assignedTo: newTaskData.assignedTo || undefined,
+        cost: newTaskData.cost ? parseFloat(newTaskData.cost) : undefined,
+        notes: newTaskData.notes || undefined
+      };
+
+      await addMaintenanceTask(taskData);
+      
+      // Reset form
+      setNewTaskData({
+        resourceId: '',
+        type: 'routine',
+        title: '',
+        description: '',
+        scheduledDate: '',
+        estimatedDuration: 1,
+        priority: 'medium',
+        assignedTo: '',
+        cost: '',
+        notes: ''
+      });
+      setShowAddTask(false);
+      alert('Tarefa de manutenção agendada com sucesso!');
+    } catch (error) {
+      console.error('Error adding maintenance task:', error);
+      alert('Erro ao agendar tarefa. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -253,6 +311,192 @@ const MaintenanceScheduler = () => {
           <Wrench className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma tarefa de manutenção</h3>
           <p className="text-gray-600">Nenhuma tarefa corresponde ao seu filtro atual</p>
+        </div>
+      )}
+
+      {/* Add Task Modal */}
+      {showAddTask && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Agendar Nova Tarefa de Manutenção</h2>
+                <button
+                  onClick={() => setShowAddTask(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddTask} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Recurso *
+                    </label>
+                    <select
+                      value={newTaskData.resourceId}
+                      onChange={(e) => setNewTaskData(prev => ({ ...prev, resourceId: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    >
+                      <option value="">Selecione um recurso</option>
+                      {resources.map((resource) => (
+                        <option key={resource.id} value={resource.id}>
+                          {resource.name} - {resource.location}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tipo de Manutenção *
+                    </label>
+                    <select
+                      value={newTaskData.type}
+                      onChange={(e) => setNewTaskData(prev => ({ ...prev, type: e.target.value as any }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    >
+                      <option value="routine">Rotina</option>
+                      <option value="repair">Reparo</option>
+                      <option value="inspection">Inspeção</option>
+                      <option value="upgrade">Upgrade</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Título *
+                    </label>
+                    <input
+                      type="text"
+                      value={newTaskData.title}
+                      onChange={(e) => setNewTaskData(prev => ({ ...prev, title: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Data Agendada *
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={newTaskData.scheduledDate}
+                      onChange={(e) => setNewTaskData(prev => ({ ...prev, scheduledDate: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Duração Estimada (horas) *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={newTaskData.estimatedDuration}
+                      onChange={(e) => setNewTaskData(prev => ({ ...prev, estimatedDuration: parseInt(e.target.value) || 1 }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Prioridade
+                    </label>
+                    <select
+                      value={newTaskData.priority}
+                      onChange={(e) => setNewTaskData(prev => ({ ...prev, priority: e.target.value as any }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="low">Baixa</option>
+                      <option value="medium">Média</option>
+                      <option value="high">Alta</option>
+                      <option value="critical">Crítica</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Atribuído a
+                    </label>
+                    <input
+                      type="text"
+                      value={newTaskData.assignedTo}
+                      onChange={(e) => setNewTaskData(prev => ({ ...prev, assignedTo: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Nome do responsável"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Custo Estimado (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={newTaskData.cost}
+                      onChange={(e) => setNewTaskData(prev => ({ ...prev, cost: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Descrição *
+                  </label>
+                  <textarea
+                    value={newTaskData.description}
+                    onChange={(e) => setNewTaskData(prev => ({ ...prev, description: e.target.value }))}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Notas Adicionais
+                  </label>
+                  <textarea
+                    value={newTaskData.notes}
+                    onChange={(e) => setNewTaskData(prev => ({ ...prev, notes: e.target.value }))}
+                    rows={2}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-4 pt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddTask(false)}
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save className="h-4 w-4" />
+                    <span>{isSubmitting ? 'Agendando...' : 'Agendar Tarefa'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
       )}
     </div>

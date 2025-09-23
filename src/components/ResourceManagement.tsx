@@ -25,6 +25,7 @@ const ResourceManagement = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingResource, setEditingResource] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState<ResourceFormData>({
     name: '',
@@ -88,8 +89,57 @@ const ResourceManagement = () => {
     setShowForm(true);
   };
 
+  const validateImageUrl = (url: string): boolean => {
+    if (!url) return false;
+    
+    // Basic URL validation
+    try {
+      new URL(url);
+    } catch {
+      return false;
+    }
+    
+    // Check if it's a valid image URL pattern
+    const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg)$/i;
+    const validDomains = ['pexels.com', 'unsplash.com', 'pixabay.com', 'images.unsplash.com', 'cdn.pixabay.com'];
+    
+    // Allow common image hosting domains or direct image URLs
+    return imageExtensions.test(url) || validDomains.some(domain => url.includes(domain));
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!formData.name.trim()) {
+      newErrors.name = 'Nome é obrigatório';
+    }
+    
+    if (!formData.description.trim()) {
+      newErrors.description = 'Descrição é obrigatória';
+    }
+    
+    if (!formData.location.trim()) {
+      newErrors.location = 'Localização é obrigatória';
+    }
+    
+    if (!validateImageUrl(formData.image)) {
+      newErrors.image = 'URL da imagem inválida. Use URLs de imagens válidas (jpg, png, gif, webp, svg) ou de sites como Pexels, Unsplash, Pixabay';
+    }
+    
+    if (formData.quantity < 1) {
+      newErrors.quantity = 'Quantidade deve ser pelo menos 1';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
@@ -367,10 +417,18 @@ const ResourceManagement = () => {
                     <input
                       type="text"
                       value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, name: e.target.value }));
+                        if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
+                      }}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.name ? 'border-red-300' : 'border-gray-300'
+                      }`}
                       required
                     />
+                    {errors.name && (
+                      <p className="text-red-600 text-sm mt-1">{errors.name}</p>
+                    )}
                   </div>
 
                   <div>
@@ -396,10 +454,18 @@ const ResourceManagement = () => {
                     <input
                       type="text"
                       value={formData.location}
-                      onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, location: e.target.value }));
+                        if (errors.location) setErrors(prev => ({ ...prev, location: '' }));
+                      }}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.location ? 'border-red-300' : 'border-gray-300'
+                      }`}
                       required
                     />
+                    {errors.location && (
+                      <p className="text-red-600 text-sm mt-1">{errors.location}</p>
+                    )}
                   </div>
 
                   <div>
@@ -410,10 +476,19 @@ const ResourceManagement = () => {
                       type="number"
                       min="1"
                       value={formData.quantity}
-                      onChange={(e) => setFormData(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 1;
+                        setFormData(prev => ({ ...prev, quantity: value }));
+                        if (errors.quantity) setErrors(prev => ({ ...prev, quantity: '' }));
+                      }}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.quantity ? 'border-red-300' : 'border-gray-300'
+                      }`}
                       required
                     />
+                    {errors.quantity && (
+                      <p className="text-red-600 text-sm mt-1">{errors.quantity}</p>
+                    )}
                   </div>
 
                   <div>
@@ -440,11 +515,19 @@ const ResourceManagement = () => {
                     <input
                       type="url"
                       value={formData.image}
-                      onChange={(e) => setFormData(prev => ({ ...prev, image: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, image: e.target.value }));
+                        if (errors.image) setErrors(prev => ({ ...prev, image: '' }));
+                      }}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.image ? 'border-red-300' : 'border-gray-300'
+                      }`}
                       placeholder="https://exemplo.com/imagem.jpg"
                       required
                     />
+                    {errors.image && (
+                      <p className="text-red-600 text-sm mt-1">{errors.image}</p>
+                    )}
                   </div>
                 </div>
 
@@ -454,11 +537,19 @@ const ResourceManagement = () => {
                   </label>
                   <textarea
                     value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, description: e.target.value }));
+                      if (errors.description) setErrors(prev => ({ ...prev, description: '' }));
+                    }}
                     rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.description ? 'border-red-300' : 'border-gray-300'
+                    }`}
                     required
                   />
+                  {errors.description && (
+                    <p className="text-red-600 text-sm mt-1">{errors.description}</p>
+                  )}
                 </div>
 
                 {formData.category === 'rooms' && (

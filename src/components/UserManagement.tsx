@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Edit, Trash2, Shield, User, Mail, Calendar } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Shield, User, Mail, Calendar, X, Save } from 'lucide-react';
 import { usersService } from '../services/database';
 
 const UserManagement = () => {
@@ -8,6 +8,13 @@ const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [showAddUser, setShowAddUser] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newUserData, setNewUserData] = useState({
+    name: '',
+    email: '',
+    role: 'student' as 'student' | 'faculty' | 'admin',
+    department: ''
+  });
 
   // Load users from database
   React.useEffect(() => {
@@ -40,6 +47,49 @@ const UserManagement = () => {
 
     loadUsers();
   }, []);
+
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const newUser = await usersService.createProfile({
+        id: crypto.randomUUID(), // Generate a temporary ID
+        ...newUserData,
+        email: newUserData.email.toLowerCase()
+      });
+      
+      // Add to local state
+      const transformedUser = {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        department: newUser.department,
+        joinDate: newUser.created_at.split('T')[0],
+        lastLogin: newUser.updated_at.split('T')[0],
+        status: 'active',
+        reservations: 0
+      };
+      
+      setUsers(prev => [...prev, transformedUser]);
+      
+      // Reset form
+      setNewUserData({
+        name: '',
+        email: '',
+        role: 'student',
+        department: ''
+      });
+      setShowAddUser(false);
+      alert('Usuário adicionado com sucesso!');
+    } catch (error) {
+      console.error('Error adding user:', error);
+      alert('Erro ao adicionar usuário. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const roleOptions = [
     { id: 'all', name: 'Todos os Papéis' },
@@ -295,6 +345,102 @@ const UserManagement = () => {
           <User className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum usuário encontrado</h3>
           <p className="text-gray-600">Tente ajustar seus critérios de busca</p>
+        </div>
+      )}
+
+      {/* Add User Modal */}
+      {showAddUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Adicionar Novo Usuário</h2>
+                <button
+                  onClick={() => setShowAddUser(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddUser} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nome Completo *
+                  </label>
+                  <input
+                    type="text"
+                    value={newUserData.name}
+                    onChange={(e) => setNewUserData(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Institucional *
+                  </label>
+                  <input
+                    type="email"
+                    value={newUserData.email}
+                    onChange={(e) => setNewUserData(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="usuario@universidade.edu.br"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Papel *
+                  </label>
+                  <select
+                    value={newUserData.role}
+                    onChange={(e) => setNewUserData(prev => ({ ...prev, role: e.target.value as any }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="student">Estudante</option>
+                    <option value="faculty">Professor</option>
+                    <option value="admin">Administrador</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Departamento *
+                  </label>
+                  <input
+                    type="text"
+                    value={newUserData.department}
+                    onChange={(e) => setNewUserData(prev => ({ ...prev, department: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Ex: Engenharia de Software"
+                    required
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddUser(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save className="h-4 w-4" />
+                    <span>{isSubmitting ? 'Salvando...' : 'Adicionar'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
       )}
     </div>
