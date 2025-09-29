@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Plus, Edit, Trash2, Shield, User, Mail, Calendar, X, Save } from 'lucide-react';
 import { usersService } from '../services/database';
+import { supabase } from '../lib/supabase';
 
 const UserManagement = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -12,6 +13,7 @@ const UserManagement = () => {
   const [newUserData, setNewUserData] = useState({
     name: '',
     email: '',
+    password: '',
     role: 'student' as 'student' | 'faculty' | 'admin',
     department: ''
   });
@@ -53,9 +55,33 @@ const UserManagement = () => {
     setIsSubmitting(true);
 
     try {
+      // First, create the user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: newUserData.email.toLowerCase(),
+        password: newUserData.password,
+        email_confirm: true, // Skip email confirmation
+        user_metadata: {
+          name: newUserData.name,
+          role: newUserData.role,
+          department: newUserData.department
+        }
+      });
+
+      if (authError) {
+        console.error('Error creating auth user:', authError);
+        throw new Error(`Erro ao criar conta de autenticação: ${authError.message}`);
+      }
+
+      if (!authData.user) {
+        throw new Error('Falha ao criar usuário - nenhum dado de usuário retornado');
+      }
+
+      // Then create the user profile in the public.users table
       const newUser = await usersService.createProfile({
-        id: crypto.randomUUID(), // Generate a temporary ID
-        ...newUserData,
+        id: authData.user.id, // Use the auth user ID
+        name: newUserData.name,
+        role: newUserData.role,
+        department: newUserData.department,
         email: newUserData.email.toLowerCase()
       });
       
@@ -78,6 +104,7 @@ const UserManagement = () => {
       setNewUserData({
         name: '',
         email: '',
+        password: '',
         role: 'student',
         department: ''
       });
@@ -391,6 +418,23 @@ const UserManagement = () => {
                   />
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Senha Temporária *
+                  </label>
+                  <input
+                    type="password"
+                    value={newUserData.password}
+                    onChange={(e) => setNewUserData(prev => ({ ...prev, password: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Senha inicial para o usuário"
+                    minLength={6}
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    O usuário poderá alterar esta senha após o primeiro login
+                  </p>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Papel *
