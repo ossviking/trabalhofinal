@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Plus, CreditCard as Edit, Trash2, Shield, User, Mail, Calendar, X, Save } from 'lucide-react';
 import { usersService } from '../services/database';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseAdmin } from '../lib/supabase';
 
 const UserManagement = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -56,7 +56,7 @@ const UserManagement = () => {
 
     try {
       // First, create the user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: newUserData.email.toLowerCase(),
         password: newUserData.password,
         email_confirm: true, // Skip email confirmation
