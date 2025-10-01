@@ -213,6 +213,58 @@ export interface Database {
         }
       }
     }
+    resource_packages: {
+      Row: {
+        id: string
+        name: string
+        description: string
+        subject: string
+        created_by: string
+        created_at: string
+        updated_at: string
+      }
+      Insert: {
+        id?: string
+        name: string
+        description: string
+        subject: string
+        created_by: string
+        created_at?: string
+        updated_at?: string
+      }
+      Update: {
+        id?: string
+        name?: string
+        description?: string
+        subject?: string
+        created_by?: string
+        created_at?: string
+        updated_at?: string
+      }
+    }
+    package_resources: {
+      Row: {
+        id: string
+        package_id: string
+        resource_id: string
+        quantity_needed: number
+        created_at: string
+      }
+      Insert: {
+        id?: string
+        package_id: string
+        resource_id: string
+        quantity_needed?: number
+        created_at?: string
+      }
+      Update: {
+        id?: string
+        package_id?: string
+        resource_id?: string
+        quantity_needed?: number
+        created_at?: string
+      }
+    }
     Views: {
       [_ in never]: never
     }

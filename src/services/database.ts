@@ -7,6 +7,8 @@ type Reservation = Tables['reservations']['Row']
 type MaintenanceTask = Tables['maintenance_tasks']['Row']
 type UserProfile = Tables['users']['Row']
 type Message = Tables['messages']['Row']
+type ResourcePackage = Tables['resource_packages']['Row']
+type PackageResource = Tables['package_resources']['Row']
 
 // Resources
 export const resourcesService = {
