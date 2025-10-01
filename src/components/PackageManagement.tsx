@@ -29,6 +29,19 @@ interface PackageResource {
 
 const PackageManagement = () => {
   const { user } = useUser();
+  
+  // Ensure only admins and faculty can access this page
+  if (user?.role !== 'admin' && user?.role !== 'faculty') {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="text-center py-12">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Acesso Negado</h2>
+          <p className="text-gray-600">Você não tem permissão para visualizar esta página.</p>
+        </div>
+      </div>
+    );
+  }
+
   const [packages, setPackages] = useState<ResourcePackage[]>([]);
   const [resources, setResources] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

@@ -33,7 +33,7 @@ const Navbar = () => {
     { path: '/resources', icon: Package, label: 'Recursos' },
     { path: '/calendar', icon: Calendar, label: 'Calendário' },
     { path: '/request', icon: FileText, label: 'Nova Solicitação' },
-    { path: '/packages', icon: Package, label: 'Pacotes', roles: ['faculty', 'admin'] },
+    { path: '/packages', icon: Package, label: 'Pacotes', roles: ['admin'] },
     { path: '/approvals', icon: CheckSquare, label: 'Aprovações', roles: ['faculty', 'admin'] },
     { path: '/reports', icon: BarChart3, label: 'Relatórios', roles: ['admin'] },
     { path: '/users', icon: Users, label: 'Usuários', roles: ['admin'] },

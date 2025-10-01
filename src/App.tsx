@@ -66,7 +66,7 @@ const AppContent = () => {
                     </ProtectedRoute>
                   } />
                   <Route path="/packages" element={
-                    <ProtectedRoute requiredRole="faculty">
+                    <ProtectedRoute>
                       <PackageManagement />
                     </ProtectedRoute>
                   } />
