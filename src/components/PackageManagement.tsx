@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2, Package, BookOpen, Users, Save, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Plus, CreditCard as Edit, Trash2, Package, BookOpen, Users, Save, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { packagesService, resourcesService } from '../services/database';
 import { useUser } from '../context/UserContext';
 
