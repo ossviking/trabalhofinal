@@ -415,3 +415,192 @@ export const messagesService = {
     return data
   }
 }
+
+// Resource Packages
+export const packagesService = {
+  async getAll(): Promise<ResourcePackage[]> {
+    const { data, error } = await supabase
+      .from('resource_packages')
+      .select('*')
+      .order('name')
+    
+    if (error) throw error
+    return data || []
+  },
+
+  async getById(id: string): Promise<ResourcePackage | null> {
+    const { data, error } = await supabase
+      .from('resource_packages')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
+    
+    if (error) throw error
+    return data
+  },
+
+  async getPackageResources(packageId: string): Promise<(PackageResource & { resource: Resource })[]> {
+    const { data, error } = await supabase
+      .from('package_resources')
+      .select(`
+        *,
+        resource:resources(*)
+      `)
+      .eq('package_id', packageId)
+    
+    if (error) throw error
+    return data || []
+  },
+
+  async create(packageData: Tables['resource_packages']['Insert']): Promise<ResourcePackage> {
+    const { data, error } = await supabase
+      .from('resource_packages')
+      .insert(packageData)
+      .select()
+      .maybeSingle()
+    
+    if (error) throw error
+    if (!data) throw new Error('Failed to create resource package - no data returned')
+    return data
+  },
+
+  async addResourceToPackage(
+    packageId: string, 
+    resourceId: string, 
+    quantityNeeded: number = 1
+  ): Promise<PackageResource> {
+    const { data, error } = await supabase
+      .from('package_resources')
+      .insert({
+        package_id: packageId,
+        resource_id: resourceId,
+        quantity_needed: quantityNeeded
+      })
+      .select()
+      .maybeSingle()
+    
+    if (error) throw error
+    if (!data) throw new Error('Failed to add resource to package - no data returned')
+    return data
+  },
+
+  async removeResourceFromPackage(packageId: string, resourceId: string): Promise<void> {
+    const { error } = await supabase
+      .from('package_resources')
+      .delete()
+      .eq('package_id', packageId)
+      .eq('resource_id', resourceId)
+    
+    if (error) throw error
+  },
+
+  async update(id: string, updates: Tables['resource_packages']['Update']): Promise<ResourcePackage> {
+    const { data, error } = await supabase
+      .from('resource_packages')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .maybeSingle()
+    
+    if (error) throw error
+    if (!data) throw new Error('Failed to update resource package - no data returned')
+    return data
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('resource_packages')
+      .delete()
+      .eq('id', id)
+    
+    if (error) throw error
+  },
+
+  async checkPackageAvailability(
+    packageId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<{ available: boolean; conflicts: string[] }> {
+    // Obter recursos do pacote
+    const packageResources = await this.getPackageResources(packageId)
+    const conflicts: string[] = []
+    
+    // Verificar disponibilidade de cada recurso
+    for (const packageResource of packageResources) {
+      const hasConflict = await reservationsService.checkConflict(
+        packageResource.resource_id,
+        startDate,
+        endDate
+      )
+      
+      if (hasConflict) {
+        conflicts.push(packageResource.resource.name)
+      }
+    }
+    
+    return {
+      available: conflicts.length === 0,
+      conflicts
+    }
+  },
+
+  async createPackageReservation(
+    packageId: string,
+    userId: string,
+    startDate: string,
+    endDate: string,
+    purpose: string,
+    description?: string,
+    priority: 'low' | 'normal' | 'high' | 'urgent' = 'normal'
+  ): Promise<Reservation[]> {
+    // Verificar disponibilidade primeiro
+    const availability = await this.checkPackageAvailability(packageId, startDate, endDate)
+    
+    if (!availability.available) {
+      throw new Error(`Recursos não disponíveis: ${availability.conflicts.join(', ')}`)
+    }
+    
+    // Obter recursos do pacote
+    const packageResources = await this.getPackageResources(packageId)
+    const createdReservations: Reservation[] = []
+    
+    // Criar reserva para cada recurso do pacote
+    for (const packageResource of packageResources) {
+      try {
+        const reservation = await reservationsService.create({
+          user_id: userId,
+          resource_id: packageResource.resource_id,
+          start_date: startDate,
+          end_date: endDate,
+          purpose: `${purpose} (Pacote)`,
+          description: description || `Reserva automática do pacote de recursos`,
+          status: 'pending',
+          priority
+        })
+        
+        createdReservations.push({
+          id: reservation.id,
+          userId: reservation.user_id,
+          resourceId: reservation.resource_id,
+          startDate: reservation.start_date,
+          endDate: reservation.end_date,
+          purpose: reservation.purpose,
+          description: reservation.description || undefined,
+          status: reservation.status,
+          createdAt: reservation.created_at,
+          priority: reservation.priority,
+          attendees: reservation.attendees || undefined,
+          requirements: reservation.requirements || undefined
+        })
+      } catch (error) {
+        // Se falhar em criar uma reserva, cancelar todas as anteriores
+        for (const createdReservation of createdReservations) {
+          await reservationsService.delete(createdReservation.id)
+        }
+        throw new Error(`Falha ao criar reserva para ${packageResource.resource.name}: ${error}`)
+      }
+    }
+    
+    return createdReservations
+  }
+}

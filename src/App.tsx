@@ -13,6 +13,7 @@ import ApprovalWorkflow from './components/ApprovalWorkflow';
 import UsageReports from './components/UsageReports';
 import UserManagement from './components/UserManagement';
 import ResourceManagement from './components/ResourceManagement';
+import PackageManagement from './components/PackageManagement';
 import MaintenanceScheduler from './components/MaintenanceScheduler';
 import SystemSettings from './components/SystemSettings';
 import { UserProvider } from './context/UserContext';
@@ -62,6 +63,11 @@ const AppContent = () => {
                   <Route path="/admin/resources" element={
                     <ProtectedRoute requiredRole="admin">
                       <ResourceManagement />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/packages" element={
+                    <ProtectedRoute requiredRole="faculty">
+                      <PackageManagement />
                     </ProtectedRoute>
                   } />
                   <Route path="/maintenance" element={

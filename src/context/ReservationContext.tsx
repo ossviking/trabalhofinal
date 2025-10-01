@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { resourcesService, reservationsService, maintenanceService } from '../services/database';
+import { resourcesService, reservationsService, maintenanceService, packagesService } from '../services/database';
 import { useUser } from './UserContext';
 
 interface Resource {
@@ -47,13 +47,26 @@ interface MaintenanceTask {
   cost?: number;
   notes?: string;
 }
+
+interface ResourcePackage {
+  id: string;
+  name: string;
+  description: string;
+  subject: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface ReservationContextType {
   resources: Resource[];
   reservations: Reservation[];
   maintenanceTasks: MaintenanceTask[];
+  resourcePackages: ResourcePackage[];
   loading: boolean;
   refreshData: () => Promise<void>;
   addReservation: (reservation: Reservation) => void;
+  addPackageReservation: (packageId: string, startDate: string, endDate: string, purpose: string, description?: string) => Promise<void>;
   updateReservationStatus: (id: string, status: 'approved' | 'rejected', comments?: string) => void;
   addResource: (resource: Omit<Resource, 'id'>) => Promise<void>;
   updateResource: (id: string, updates: Partial<Resource>) => Promise<void>;
@@ -81,6 +94,7 @@ export const ReservationProvider: React.FC<ReservationProviderProps> = ({ childr
   const [resources, setResources] = useState<Resource[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [maintenanceTasks, setMaintenanceTasks] = useState<MaintenanceTask[]>([]);
+  const [resourcePackages, setResourcePackages] = useState<ResourcePackage[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Load data from Supabase
@@ -146,6 +160,10 @@ export const ReservationProvider: React.FC<ReservationProviderProps> = ({ childr
         }));
         setMaintenanceTasks(formattedMaintenance);
       }
+
+      // Load resource packages (available to all authenticated users)
+      const packagesData = await packagesService.getAll();
+      setResourcePackages(packagesData);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -161,6 +179,7 @@ export const ReservationProvider: React.FC<ReservationProviderProps> = ({ childr
       setResources([]);
       setReservations([]);
       setMaintenanceTasks([]);
+      setResourcePackages([]);
       setLoading(false);
     }
   }, [user]);
@@ -200,6 +219,48 @@ export const ReservationProvider: React.FC<ReservationProviderProps> = ({ childr
       setReservations(prev => [...prev, formattedReservation]);
     } catch (error) {
       console.error('Error creating reservation:', error);
+      throw error;
+    }
+  };
+
+  const addPackageReservation = async (
+    packageId: string, 
+    startDate: string, 
+    endDate: string, 
+    purpose: string, 
+    description?: string
+  ) => {
+    if (!user) return;
+    
+    try {
+      const reservations = await packagesService.createPackageReservation(
+        packageId,
+        user.id,
+        startDate,
+        endDate,
+        purpose,
+        description
+      );
+      
+      // Add all created reservations to local state
+      const formattedReservations = reservations.map(reservation => ({
+        id: reservation.id,
+        userId: reservation.user_id,
+        resourceId: reservation.resource_id,
+        startDate: reservation.start_date,
+        endDate: reservation.end_date,
+        purpose: reservation.purpose,
+        description: reservation.description || undefined,
+        status: reservation.status,
+        createdAt: reservation.created_at,
+        priority: reservation.priority,
+        attendees: reservation.attendees || undefined,
+        requirements: reservation.requirements || undefined
+      }));
+      
+      setReservations(prev => [...prev, ...formattedReservations]);
+    } catch (error) {
+      console.error('Error creating package reservation:', error);
       throw error;
     }
   };
@@ -365,9 +426,11 @@ export const ReservationProvider: React.FC<ReservationProviderProps> = ({ childr
       resources,
       reservations,
       maintenanceTasks,
+      resourcePackages,
       loading,
       refreshData: loadData,
       addReservation,
+      addPackageReservation,
       updateReservationStatus,
       addResource,
       updateResource,
