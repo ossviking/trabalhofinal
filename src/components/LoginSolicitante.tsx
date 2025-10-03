@@ -159,9 +159,13 @@ const LoginSolicitante = () => {
                 <input type="checkbox" className="rounded border-gray-300 text-green-600 focus:ring-green-500" />
                 <span className="ml-2 text-sm text-gray-600">Lembrar-me</span>
               </label>
-              <a href="#" className="text-sm text-green-600 hover:text-green-700">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-green-600 hover:text-green-700"
+              >
                 Esqueceu a senha?
-              </a>
+              </button>
             </div>
 
             <button
