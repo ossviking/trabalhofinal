@@ -2,11 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Lock, Eye, EyeOff, ArrowLeft, Package } from 'lucide-react';
 import { useUser } from '../context/UserContext';
+import { passwordResetRequestsService } from '../services/database';
 
 const LoginSolicitante = () => {
   const navigate = useNavigate();
   const { signIn, user, loading } = useUser();
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -57,6 +61,34 @@ const LoginSolicitante = () => {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotPasswordEmail.trim()) {
+      alert('Por favor, digite seu email.');
+      return;
+    }
+
+    setIsSubmittingRequest(true);
+    try {
+      // Create a temporary user ID for the request (we'll need to find the user by email)
+      // For now, we'll create the request with a placeholder and let the admin handle it
+      await passwordResetRequestsService.createRequest(
+        'temp-user-id', // This will be handled by the admin
+        forgotPasswordEmail,
+        'Usuário' // Placeholder name
+      );
+      
+      alert('Solicitação de redefinição de senha enviada! Um administrador entrará em contato em breve.');
+      setShowForgotPassword(false);
+      setForgotPasswordEmail('');
+    } catch (error) {
+      console.error('Error submitting password reset request:', error);
+      alert('Erro ao enviar solicitação. Tente novamente.');
+    } finally {
+      setIsSubmittingRequest(false);
+    }
   };
 
   return (
@@ -161,6 +193,67 @@ const LoginSolicitante = () => {
             </p>
           </div>
         </div>
+
+        {/* Forgot Password Modal */}
+        {showForgotPassword && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold text-gray-900">Esqueceu a Senha?</h2>
+                  <button
+                    onClick={() => setShowForgotPassword(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <ArrowLeft className="h-6 w-6" />
+                  </button>
+                </div>
+
+                <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    Digite seu email institucional abaixo. Um administrador receberá sua solicitação e entrará em contato para redefinir sua senha.
+                  </p>
+                </div>
+
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Institucional
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <input
+                        type="email"
+                        value={forgotPasswordEmail}
+                        onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="seu.email@universidade.edu.br"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-4 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPassword(false)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmittingRequest}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmittingRequest ? 'Enviando...' : 'Enviar Solicitação'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

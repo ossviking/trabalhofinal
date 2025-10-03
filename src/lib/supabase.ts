@@ -212,6 +212,47 @@ export interface Database {
           created_at?: string
         }
       }
+      password_reset_requests: {
+        Row: {
+          id: string
+          user_id: string
+          user_email: string
+          user_name: string
+          status: 'pending' | 'completed' | 'rejected'
+          requested_at: string
+          processed_at: string | null
+          processed_by: string | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          user_email: string
+          user_name: string
+          status?: 'pending' | 'completed' | 'rejected'
+          requested_at?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          user_email?: string
+          user_name?: string
+          status?: 'pending' | 'completed' | 'rejected'
+          requested_at?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     resource_packages: {
       Row: {

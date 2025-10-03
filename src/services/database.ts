@@ -9,6 +9,7 @@ type UserProfile = Tables['users']['Row']
 type Message = Tables['messages']['Row']
 type ResourcePackage = Tables['resource_packages']['Row']
 type PackageResource = Tables['package_resources']['Row']
+type PasswordResetRequest = Tables['password_reset_requests']['Row']
 
 // Resources
 export const resourcesService = {
@@ -602,5 +603,107 @@ export const packagesService = {
     }
     
     return createdReservations
+  }
+}
+
+// Password Reset Requests
+export const passwordResetRequestsService = {
+  async createRequest(userId: string, userEmail: string, userName: string): Promise<PasswordResetRequest> {
+    const { data, error } = await supabase
+      .from('password_reset_requests')
+      .insert({
+        user_id: userId,
+        user_email: userEmail,
+        user_name: userName,
+        status: 'pending'
+      })
+      .select()
+      .single()
+    
+    if (error) throw error
+    if (!data) throw new Error('Failed to create password reset request - no data returned')
+    return data
+  },
+
+  async getAllPendingRequests(): Promise<PasswordResetRequest[]> {
+    const { data, error } = await supabase
+      .from('password_reset_requests')
+      .select('*')
+      .eq('status', 'pending')
+      .order('requested_at', { ascending: false })
+    
+    if (error) throw error
+    return data || []
+  },
+
+  async getAllRequests(): Promise<PasswordResetRequest[]> {
+    const { data, error } = await supabase
+      .from('password_reset_requests')
+      .select('*')
+      .order('requested_at', { ascending: false })
+    
+    if (error) throw error
+    return data || []
+  },
+
+  async getUserRequests(userId: string): Promise<PasswordResetRequest[]> {
+    const { data, error } = await supabase
+      .from('password_reset_requests')
+      .select('*')
+      .eq('user_id', userId)
+      .order('requested_at', { ascending: false })
+    
+    if (error) throw error
+    return data || []
+  },
+
+  async updateRequestStatus(
+    requestId: string, 
+    status: 'pending' | 'completed' | 'rejected',
+    processedBy?: string,
+    notes?: string
+  ): Promise<PasswordResetRequest> {
+    const updateData: any = {
+      status,
+      processed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    if (processedBy) {
+      updateData.processed_by = processedBy
+    }
+
+    if (notes) {
+      updateData.notes = notes
+    }
+
+    const { data, error } = await supabase
+      .from('password_reset_requests')
+      .update(updateData)
+      .eq('id', requestId)
+      .select()
+      .single()
+    
+    if (error) throw error
+    if (!data) throw new Error('Failed to update password reset request - no data returned')
+    return data
+  },
+
+  async resetUserPassword(userId: string, newPassword: string): Promise<void> {
+    // Usar o supabaseAdmin para redefinir a senha do usuário
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      password: newPassword
+    })
+    
+    if (error) throw error
+  },
+
+  async deleteRequest(requestId: string): Promise<void> {
+    const { error } = await supabase
+      .from('password_reset_requests')
+      .delete()
+      .eq('id', requestId)
+    
+    if (error) throw error
   }
 }

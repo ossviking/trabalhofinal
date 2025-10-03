@@ -16,6 +16,7 @@ import ResourceManagement from './components/ResourceManagement';
 import PackageManagement from './components/PackageManagement';
 import MaintenanceScheduler from './components/MaintenanceScheduler';
 import SystemSettings from './components/SystemSettings';
+import PasswordResetManagement from './components/PasswordResetManagement';
 import { UserProvider } from './context/UserContext';
 import { ReservationProvider } from './context/ReservationContext';
 import { ChatProvider } from './context/ChatContext';
@@ -78,6 +79,11 @@ const AppContent = () => {
                   <Route path="/settings" element={
                     <ProtectedRoute requiredRole="admin">
                       <SystemSettings />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/password-reset" element={
+                    <ProtectedRoute requiredRole="admin">
+                      <PasswordResetManagement />
                     </ProtectedRoute>
                   } />
                 </Routes>
