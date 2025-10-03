@@ -73,11 +73,10 @@ const LoginAdministrador = () => {
     setIsSubmittingRequest(true);
     try {
       await passwordResetRequestsService.createRequest(
-        'temp-admin-id',
         forgotPasswordEmail,
         'Administrador'
       );
-      
+
       alert('Solicitação de redefinição de senha enviada! Outro administrador processará sua solicitação.');
       setShowForgotPassword(false);
       setForgotPasswordEmail('');

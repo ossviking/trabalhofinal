@@ -608,18 +608,17 @@ export const packagesService = {
 
 // Password Reset Requests
 export const passwordResetRequestsService = {
-  async createRequest(userId: string, userEmail: string, userName: string): Promise<PasswordResetRequest> {
+  async createRequest(userEmail: string, userName: string): Promise<PasswordResetRequest> {
     const { data, error } = await supabase
       .from('password_reset_requests')
       .insert({
-        user_id: userId,
         user_email: userEmail,
         user_name: userName,
         status: 'pending'
       })
       .select()
       .single()
-    
+
     if (error) throw error
     if (!data) throw new Error('Failed to create password reset request - no data returned')
     return data

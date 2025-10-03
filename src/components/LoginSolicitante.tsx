@@ -72,14 +72,11 @@ const LoginSolicitante = () => {
 
     setIsSubmittingRequest(true);
     try {
-      // Create a temporary user ID for the request (we'll need to find the user by email)
-      // For now, we'll create the request with a placeholder and let the admin handle it
       await passwordResetRequestsService.createRequest(
-        'temp-user-id', // This will be handled by the admin
         forgotPasswordEmail,
-        'Usuário' // Placeholder name
+        'Usuário'
       );
-      
+
       alert('Solicitação de redefinição de senha enviada! Um administrador entrará em contato em breve.');
       setShowForgotPassword(false);
       setForgotPasswordEmail('');
