@@ -608,10 +608,11 @@ export const packagesService = {
 
 // Password Reset Requests
 export const passwordResetRequestsService = {
-  async createRequest(userEmail: string, userName: string): Promise<PasswordResetRequest> {
+  async createRequest(userEmail: string, userName: string, userId?: string): Promise<PasswordResetRequest> {
     const { data, error } = await supabase
       .from('password_reset_requests')
       .insert({
+        user_id: userId || null,
         user_email: userEmail,
         user_name: userName,
         status: 'pending'
@@ -689,12 +690,43 @@ export const passwordResetRequestsService = {
   },
 
   async resetUserPassword(userId: string, newPassword: string): Promise<void> {
-    // Usar o supabaseAdmin para redefinir a senha do usuário
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-      password: newPassword
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Missing Supabase environment variables')
+    }
+
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session) {
+      throw new Error('No active session')
+    }
+
+    const apiUrl = `${supabaseUrl}/functions/v1/reset-password`
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+        'apikey': supabaseAnonKey
+      },
+      body: JSON.stringify({
+        userId,
+        newPassword
+      })
     })
-    
-    if (error) throw error
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to reset password')
+    }
+
+    const result = await response.json()
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to reset password')
+    }
   },
 
   async deleteRequest(requestId: string): Promise<void> {

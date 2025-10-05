@@ -215,7 +215,7 @@ export interface Database {
       password_reset_requests: {
         Row: {
           id: string
-          user_id: string
+          user_id: string | null
           user_email: string
           user_name: string
           status: 'pending' | 'completed' | 'rejected'
@@ -228,7 +228,7 @@ export interface Database {
         }
         Insert: {
           id?: string
-          user_id: string
+          user_id?: string | null
           user_email: string
           user_name: string
           status?: 'pending' | 'completed' | 'rejected'
@@ -241,7 +241,7 @@ export interface Database {
         }
         Update: {
           id?: string
-          user_id?: string
+          user_id?: string | null
           user_email?: string
           user_name?: string
           status?: 'pending' | 'completed' | 'rejected'
