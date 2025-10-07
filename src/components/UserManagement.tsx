@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Plus, CreditCard as Edit, Trash2, Shield, User, Mail, Calendar, X, Save } from 'lucide-react';
 import { usersService } from '../services/database';
-import { supabase, supabaseAdmin } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 const UserManagement = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -55,30 +55,29 @@ const UserManagement = () => {
     setIsSubmitting(true);
 
     try {
-      // First, create the user in Supabase Auth
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: newUserData.email.toLowerCase(),
         password: newUserData.password,
-        email_confirm: true, // Skip email confirmation
-        user_metadata: {
-          name: newUserData.name,
-          role: newUserData.role,
-          department: newUserData.department
+        options: {
+          data: {
+            name: newUserData.name,
+            role: newUserData.role,
+            department: newUserData.department
+          }
         }
       });
 
       if (authError) {
         console.error('Error creating auth user:', authError);
-        throw new Error(`Erro ao criar conta de autenticação: ${authError.message}`);
+        throw new Error(`Erro ao criar conta: ${authError.message}`);
       }
 
       if (!authData.user) {
-        throw new Error('Falha ao criar usuário - nenhum dado de usuário retornado');
+        throw new Error('Falha ao criar usuário');
       }
 
-      // Then create the user profile in the public.users table
       const newUser = await usersService.createProfile({
-        id: authData.user.id, // Use the auth user ID
+        id: authData.user.id,
         name: newUserData.name,
         role: newUserData.role,
         department: newUserData.department,
