@@ -1,95 +1,38 @@
 import { supabase } from '../lib/supabase';
 import type {
   AISuggestion,
-  AIAnalysisRequest,
-  ClaudeAPIRequest,
-  ClaudeAPIResponse,
-  SuggestionType,
-  SuggestionMetadata,
   AIChatContext,
 } from '../types/ai';
 
-const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const CLAUDE_MODEL = 'claude-3-5-sonnet-20241022';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
-const MAX_REQUESTS_PER_MINUTE = 10;
-const requestTimestamps: number[] = [];
+async function callEdgeFunction(functionName: string, body: any) {
+  const { data: { session } } = await supabase.auth.getSession();
 
-function checkRateLimit(): boolean {
-  const now = Date.now();
-  const oneMinuteAgo = now - 60000;
-
-  const recentRequests = requestTimestamps.filter(ts => ts > oneMinuteAgo);
-  requestTimestamps.length = 0;
-  requestTimestamps.push(...recentRequests);
-
-  return recentRequests.length < MAX_REQUESTS_PER_MINUTE;
-}
-
-function addRequestTimestamp(): void {
-  requestTimestamps.push(Date.now());
-}
-
-async function callClaudeAPI(messages: Array<{ role: string; content: string }>, maxTokens: number = 1024): Promise<string> {
-  if (!ANTHROPIC_API_KEY) {
-    throw new Error('VITE_ANTHROPIC_API_KEY não configurada');
+  if (!session) {
+    throw new Error('Não autenticado');
   }
 
-  if (!checkRateLimit()) {
-    throw new Error('Rate limit excedido. Tente novamente em alguns segundos.');
-  }
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/${functionName}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
 
-  const requestBody: ClaudeAPIRequest = {
-    model: CLAUDE_MODEL,
-    max_tokens: maxTokens,
-    messages: messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-    temperature: 0.7,
-  };
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
 
-  try {
-    addRequestTimestamp();
-
-    const response = await fetch(ANTHROPIC_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`API Error: ${response.status} - ${JSON.stringify(errorData)}`);
+    if (response.status === 429) {
+      throw new Error(errorData.message || 'Limite de tokens atingido para este mês');
     }
 
-    const data: ClaudeAPIResponse = await response.json();
-
-    const { user } = await supabase.auth.getUser();
-    if (user.data.user) {
-      const inputTokens = data.usage.input_tokens;
-      const outputTokens = data.usage.output_tokens;
-      const costEstimate = (inputTokens * 0.003 + outputTokens * 0.015) / 1000;
-
-      await supabase.from('ai_audit_log').insert({
-        user_id: user.data.user.id,
-        action_type: 'chat_message',
-        details: {
-          model: CLAUDE_MODEL,
-          input_tokens: inputTokens,
-          output_tokens: outputTokens,
-        },
-        api_cost_estimate: costEstimate,
-      });
-    }
-
-    return data.content[0].text;
-  } catch (error) {
-    console.error('Erro ao chamar Claude API:', error);
-    throw error;
+    throw new Error(errorData.error || `Erro na requisição: ${response.status}`);
   }
+
+  return response.json();
 }
 
 export async function analyzeClassroomCapacity(
@@ -97,91 +40,40 @@ export async function analyzeClassroomCapacity(
   resourceName: string,
   capacity: number
 ): Promise<AISuggestion | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  if (participants <= capacity) return null;
-
-  const overage = participants - capacity;
-  const percentOver = Math.round((overage / capacity) * 100);
-
-  const suggestion: Partial<AISuggestion> = {
-    user_id: user.id,
-    suggestion_type: 'capacity_warning',
-    suggestion_text: `A sala "${resourceName}" tem capacidade para ${capacity} pessoas, mas você precisa de ${participants} participantes (${percentOver}% acima da capacidade). Recomendamos escolher uma sala maior.`,
-    confidence_score: 95,
-    metadata: {
-      participants,
-      capacity,
-      overage,
-      resource_name: resourceName,
-    },
-  };
-
-  const { data, error } = await supabase
-    .from('ai_suggestions')
-    .insert(suggestion)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Erro ao salvar sugestão:', error);
-    return null;
-  }
-
-  return data;
-}
-
-export async function suggestEquipmentByPurpose(purpose: string, resourceName: string): Promise<AISuggestion | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
   try {
-    const prompt = `Analise o propósito desta aula e sugira equipamentos necessários.
-
-Propósito da aula: ${purpose}
-Local: ${resourceName}
-
-Sugira de 2 a 5 equipamentos importantes para esta aula. Para cada equipamento, explique brevemente por que é útil.
-
-Responda em formato de lista simples, exemplo:
-- Projetor multimídia: Para apresentar slides e materiais visuais
-- Microfone sem fio: Para garantir que todos os participantes ouçam claramente
-- Quadro branco: Para ilustrar conceitos e interação`;
-
-    const response = await callClaudeAPI([{ role: 'user', content: prompt }], 512);
-
-    const equipmentLines = response.split('\n').filter(line => line.trim().startsWith('-'));
-    const equipmentSuggestions = equipmentLines.map(line => {
-      const match = line.match(/^-\s*([^:]+):\s*(.+)$/);
-      if (match) {
-        return { name: match[1].trim(), reason: match[2].trim() };
-      }
-      return { name: line.replace(/^-\s*/, '').trim(), reason: '' };
+    const result = await callEdgeFunction('ai-analyze', {
+      analysisType: 'capacity_warning',
+      participants,
+      resourceName,
+      capacity,
     });
 
-    const suggestion: Partial<AISuggestion> = {
-      user_id: user.id,
-      suggestion_type: 'equipment',
-      suggestion_text: `Baseado no propósito da aula, recomendamos os seguintes equipamentos:\n\n${response}`,
-      confidence_score: 80,
-      metadata: {
-        purpose,
-        resource_name: resourceName,
-        equipment_suggestions: equipmentSuggestions,
-      },
-    };
+    return result.suggestion;
+  } catch (error) {
+    console.error('Erro ao analisar capacidade:', error);
+    return null;
+  }
+}
 
-    const { data, error } = await supabase
-      .from('ai_suggestions')
-      .insert(suggestion)
-      .select()
-      .single();
+export async function suggestEquipmentByPurpose(
+  purpose: string,
+  resourceName: string
+): Promise<AISuggestion | null> {
+  try {
+    const result = await callEdgeFunction('ai-analyze', {
+      analysisType: 'equipment',
+      purpose,
+      resourceName,
+    });
 
-    if (error) throw error;
-    return data;
+    return result.suggestion;
   } catch (error) {
     console.error('Erro ao sugerir equipamentos:', error);
+
+    if (error instanceof Error && error.message.includes('Limite de tokens')) {
+      throw error;
+    }
+
     return null;
   }
 }
@@ -254,88 +146,22 @@ export async function generateLessonStructure(
   duration: number,
   detailed: boolean = false
 ): Promise<AISuggestion | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
   try {
-    const durationHours = Math.floor(duration / 60);
-    const durationMins = duration % 60;
-    const durationStr = durationHours > 0
-      ? `${durationHours}h${durationMins > 0 ? durationMins + 'min' : ''}`
-      : `${durationMins} minutos`;
+    const result = await callEdgeFunction('ai-analyze', {
+      analysisType: 'lesson_structure',
+      purpose,
+      duration,
+      detailed,
+    });
 
-    const prompt = detailed
-      ? `Crie uma estrutura DETALHADA de aula para o seguinte tema:
-
-Tema: ${purpose}
-Duração total: ${durationStr}
-
-Inclua:
-1. Divisão em seções com duração específica para cada uma
-2. Metodologias de ensino sugeridas
-3. Atividades práticas ou dinâmicas
-4. Recursos necessários para cada etapa
-5. Objetivos de aprendizagem
-
-Formate como uma lista estruturada com seções claras.`
-      : `Crie uma estrutura SIMPLES de aula para o seguinte tema:
-
-Tema: ${purpose}
-Duração total: ${durationStr}
-
-Divida em 3-5 seções principais com:
-- Nome da seção
-- Duração aproximada
-- Breve descrição do que será abordado
-
-Formate como uma lista simples e objetiva.`;
-
-    const response = await callClaudeAPI([{ role: 'user', content: prompt }], detailed ? 1024 : 512);
-
-    const sections: Array<{ title: string; duration: number; description?: string }> = [];
-    const lines = response.split('\n');
-
-    let currentSection: any = null;
-    for (const line of lines) {
-      const sectionMatch = line.match(/^(?:\d+[\.)]\s*)?([^(]+)\s*\((\d+)\s*min/i);
-      if (sectionMatch) {
-        if (currentSection) sections.push(currentSection);
-        currentSection = {
-          title: sectionMatch[1].trim(),
-          duration: parseInt(sectionMatch[2]),
-          description: '',
-        };
-      } else if (currentSection && line.trim()) {
-        currentSection.description += line.trim() + ' ';
-      }
-    }
-    if (currentSection) sections.push(currentSection);
-
-    const suggestion: Partial<AISuggestion> = {
-      user_id: user.id,
-      suggestion_type: detailed ? 'lesson_structure_detailed' : 'lesson_structure_simple',
-      suggestion_text: response,
-      confidence_score: 85,
-      metadata: {
-        purpose,
-        duration,
-        lesson_structure: {
-          duration,
-          sections,
-        },
-      },
-    };
-
-    const { data, error } = await supabase
-      .from('ai_suggestions')
-      .insert(suggestion)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    return result.suggestion;
   } catch (error) {
     console.error('Erro ao gerar estrutura de aula:', error);
+
+    if (error instanceof Error && error.message.includes('Limite de tokens')) {
+      throw error;
+    }
+
     return null;
   }
 }
@@ -344,55 +170,21 @@ export async function sendMessageToAI(
   userMessage: string,
   conversationHistory: Array<{ role: string; content: string }> = []
 ): Promise<{ response: string; updatedHistory: Array<{ role: string; content: string; timestamp: string }> }> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Usuário não autenticado');
-
-  const systemContext = `Você é um assistente inteligente de um sistema de reserva de recursos educacionais.
-Você ajuda professores e administradores com:
-- Informações sobre disponibilidade de salas e equipamentos
-- Sugestões de recursos adequados para diferentes tipos de aulas
-- Ajuda com planejamento de aulas e estruturação de conteúdo
-- Dicas para melhor aproveitamento dos recursos disponíveis
-
-Seja prestativo, conciso e objetivo. Use linguagem profissional mas amigável.`;
-
-  const messages = [
-    { role: 'user', content: systemContext },
-    ...conversationHistory,
-    { role: 'user', content: userMessage },
-  ];
-
-  const response = await callClaudeAPI(messages, 1024);
-
-  const updatedHistory = [
-    ...conversationHistory,
-    { role: 'user', content: userMessage, timestamp: new Date().toISOString() },
-    { role: 'assistant', content: response, timestamp: new Date().toISOString() },
-  ];
-
-  const { data: existingContext } = await supabase
-    .from('ai_chat_context')
-    .select('*')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (existingContext) {
-    await supabase
-      .from('ai_chat_context')
-      .update({
-        conversation_history: updatedHistory,
-        last_interaction: new Date().toISOString(),
-      })
-      .eq('id', existingContext.id);
-  } else {
-    await supabase.from('ai_chat_context').insert({
-      user_id: user.id,
-      conversation_history: updatedHistory,
-      last_interaction: new Date().toISOString(),
+  try {
+    const result = await callEdgeFunction('ai-chat', {
+      message: userMessage,
+      conversationHistory,
+      maxTokens: 1024,
     });
-  }
 
-  return { response, updatedHistory };
+    return {
+      response: result.response,
+      updatedHistory: result.updatedHistory,
+    };
+  } catch (error) {
+    console.error('Erro ao enviar mensagem para IA:', error);
+    throw error;
+  }
 }
 
 export async function getChatContext(userId: string): Promise<AIChatContext | null> {
@@ -529,4 +321,43 @@ export async function analyzeResourceUsagePatterns(): Promise<void> {
         onConflict: 'resource_id,pattern_type,time_slot',
       });
   }
+}
+
+export async function getTokenUsageStats(): Promise<{
+  tokensUsed: number;
+  tokenLimit: number;
+  tokensRemaining: number;
+  requestsCount: number;
+} | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const month = new Date().toISOString().slice(0, 7);
+
+  const { data: systemUsage, error } = await supabase
+    .from('system_token_usage')
+    .select('*')
+    .eq('month', month)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Erro ao buscar estatísticas de tokens:', error);
+    return null;
+  }
+
+  if (!systemUsage) {
+    return {
+      tokensUsed: 0,
+      tokenLimit: 100000,
+      tokensRemaining: 100000,
+      requestsCount: 0,
+    };
+  }
+
+  return {
+    tokensUsed: systemUsage.tokens_used,
+    tokenLimit: systemUsage.token_limit,
+    tokensRemaining: systemUsage.token_limit - systemUsage.tokens_used,
+    requestsCount: systemUsage.requests_count,
+  };
 }

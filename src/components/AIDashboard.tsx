@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, TrendingUp, AlertTriangle, CheckCircle, XCircle, BarChart3, Clock, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { analyzeResourceUsagePatterns } from '../services/aiService';
+import { analyzeResourceUsagePatterns, getTokenUsageStats } from '../services/aiService';
 import type { AISuggestion, ResourceUsagePattern } from '../types/ai';
 
 interface SuggestionStats {
@@ -18,11 +18,19 @@ interface FeedbackStats {
   usefulRate: number;
 }
 
+interface TokenStats {
+  tokensUsed: number;
+  tokenLimit: number;
+  tokensRemaining: number;
+  requestsCount: number;
+}
+
 const AIDashboard = () => {
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
   const [usagePatterns, setUsagePatterns] = useState<ResourceUsagePattern[]>([]);
   const [suggestionStats, setSuggestionStats] = useState<SuggestionStats | null>(null);
   const [feedbackStats, setFeedbackStats] = useState<FeedbackStats | null>(null);
+  const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -38,6 +46,7 @@ const AIDashboard = () => {
         loadUsagePatterns(),
         loadSuggestionStats(),
         loadFeedbackStats(),
+        loadTokenStats(),
       ]);
     } catch (error) {
       console.error('Erro ao carregar dados do dashboard:', error);
@@ -114,6 +123,13 @@ const AIDashboard = () => {
     }
   };
 
+  const loadTokenStats = async () => {
+    const stats = await getTokenUsageStats();
+    if (stats) {
+      setTokenStats(stats);
+    }
+  };
+
   const handleAnalyzePatterns = async () => {
     setIsAnalyzing(true);
     try {
@@ -165,6 +181,56 @@ const AIDashboard = () => {
         <p className="text-gray-600 mt-2">
           Análise de padrões de uso e desempenho das sugestões inteligentes
         </p>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Uso Mensal de Tokens</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <p className="text-sm text-gray-600">Tokens Utilizados</p>
+            <p className="text-2xl font-bold text-blue-600">{tokenStats?.tokensUsed.toLocaleString() || 0}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">Limite Mensal</p>
+            <p className="text-2xl font-bold text-gray-900">{tokenStats?.tokenLimit.toLocaleString() || 0}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">Tokens Restantes</p>
+            <p className="text-2xl font-bold text-green-600">{tokenStats?.tokensRemaining.toLocaleString() || 0}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">Requisições</p>
+            <p className="text-2xl font-bold text-purple-600">{tokenStats?.requestsCount || 0}</p>
+          </div>
+        </div>
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-700">Uso do Limite</span>
+            <span className="text-sm text-gray-600">
+              {tokenStats ? Math.round((tokenStats.tokensUsed / tokenStats.tokenLimit) * 100) : 0}%
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-3">
+            <div
+              className={`h-3 rounded-full transition-all duration-300 ${
+                tokenStats && (tokenStats.tokensUsed / tokenStats.tokenLimit) > 0.8
+                  ? 'bg-red-600'
+                  : tokenStats && (tokenStats.tokensUsed / tokenStats.tokenLimit) > 0.6
+                  ? 'bg-orange-600'
+                  : 'bg-green-600'
+              }`}
+              style={{
+                width: `${tokenStats ? Math.min((tokenStats.tokensUsed / tokenStats.tokenLimit) * 100, 100) : 0}%`,
+              }}
+            />
+          </div>
+          {tokenStats && (tokenStats.tokensUsed / tokenStats.tokenLimit) > 0.8 && (
+            <p className="text-sm text-red-600 mt-2 flex items-center gap-1">
+              <AlertTriangle className="h-4 w-4" />
+              Atenção: Você está próximo do limite mensal de tokens!
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
