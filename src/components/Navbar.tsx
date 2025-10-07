@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, Home, Package, FileText, CheckSquare, BarChart3, Users, Wrench, Settings, Menu, X, Shield } from 'lucide-react';
+import { Calendar, Home, Package, FileText, CheckSquare, BarChart3, Users, Wrench, Settings, Menu, X, Shield, Sparkles } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { useReservation } from '../context/ReservationContext';
 import { useChat } from '../context/ChatContext';
@@ -39,6 +39,7 @@ const Navbar = () => {
     { path: '/users', icon: Users, label: 'Usuários', roles: ['admin'] },
     { path: '/admin/resources', icon: Package, label: 'Gerenciar Recursos', roles: ['admin'] },
     { path: '/maintenance', icon: Wrench, label: 'Manutenção', roles: ['admin'] },
+    { path: '/ai-insights', icon: Sparkles, label: 'Insights de IA', roles: ['admin'] },
     { path: '/settings', icon: Settings, label: 'Configurações', roles: ['admin'] },
     { path: '/password-reset', icon: Shield, label: 'Redefinir Senhas', roles: ['admin'] },
   ];

@@ -17,6 +17,7 @@ import PackageManagement from './components/PackageManagement';
 import MaintenanceScheduler from './components/MaintenanceScheduler';
 import SystemSettings from './components/SystemSettings';
 import PasswordResetManagement from './components/PasswordResetManagement';
+import AIDashboard from './components/AIDashboard';
 import { UserProvider } from './context/UserContext';
 import { ReservationProvider } from './context/ReservationContext';
 import { ChatProvider } from './context/ChatContext';
@@ -84,6 +85,11 @@ const AppContent = () => {
                   <Route path="/password-reset" element={
                     <ProtectedRoute requiredRole="admin">
                       <PasswordResetManagement />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/ai-insights" element={
+                    <ProtectedRoute requiredRole="admin">
+                      <AIDashboard />
                     </ProtectedRoute>
                   } />
                 </Routes>

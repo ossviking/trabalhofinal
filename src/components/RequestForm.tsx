@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, FileText, Send, AlertCircle, Package } from 'lucide-react';
 import { useReservation } from '../context/ReservationContext';
 import { useUser } from '../context/UserContext';
 import { reservationsService, packagesService } from '../services/database';
 import { useNavigate } from 'react-router-dom';
+import AISuggestionsCard from './AISuggestionsCard';
+import type { AISuggestion } from '../types/ai';
+import {
+  analyzeClassroomCapacity,
+  suggestEquipmentByPurpose,
+  suggestAlternativeRooms,
+  generateLessonStructure,
+} from '../services/aiService';
 
 const RequestForm = () => {
   const { resources, resourcePackages, addReservation, addPackageReservation } = useReservation();
@@ -31,9 +39,11 @@ const RequestForm = () => {
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [packageResources, setPackageResources] = useState<any[]>([]);
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [aiDebounceTimer, setAiDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
-  // Load draft from localStorage on component mount
-  React.useEffect(() => {
+  useEffect(() => {
     const savedDraft = localStorage.getItem(`reservation_draft_${user?.id}`);
     if (savedDraft) {
       try {
@@ -44,6 +54,14 @@ const RequestForm = () => {
       }
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (aiDebounceTimer) {
+        clearTimeout(aiDebounceTimer);
+      }
+    };
+  }, [aiDebounceTimer]);
 
   const saveDraft = async () => {
     if (!user) return;
@@ -187,14 +205,90 @@ const RequestForm = () => {
     setDebounceTimer(timer);
   };
 
-  // Cleanup timer on component unmount
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       if (debounceTimer) {
         clearTimeout(debounceTimer);
       }
     };
   }, [debounceTimer]);
+
+  const generateAISuggestions = async () => {
+    if (!formData.purpose || formData.purpose.length < 10) {
+      return;
+    }
+
+    setIsLoadingAI(true);
+    const newSuggestions: AISuggestion[] = [];
+
+    try {
+      if (requestType === 'individual' && formData.resourceId) {
+        const selectedResource = resources.find(r => r.id === formData.resourceId);
+
+        if (selectedResource && formData.attendees) {
+          const participants = parseInt(formData.attendees);
+          const capacityCheck = await analyzeClassroomCapacity(
+            participants,
+            selectedResource.name,
+            selectedResource.capacity || 0
+          );
+          if (capacityCheck) newSuggestions.push(capacityCheck);
+        }
+
+        const equipmentSuggestion = await suggestEquipmentByPurpose(
+          formData.purpose,
+          selectedResource?.name || 'recurso selecionado'
+        );
+        if (equipmentSuggestion) newSuggestions.push(equipmentSuggestion);
+
+        if (formData.startDate && formData.endDate && formData.startTime && formData.endTime) {
+          const startDateTime = `${formData.startDate}T${formData.startTime}`;
+          const endDateTime = `${formData.endDate}T${formData.endTime}`;
+
+          const alternativesSuggestion = await suggestAlternativeRooms(
+            formData.resourceId,
+            parseInt(formData.attendees) || 1,
+            startDateTime,
+            endDateTime
+          );
+          if (alternativesSuggestion) newSuggestions.push(alternativesSuggestion);
+        }
+      }
+
+      if (formData.startDate && formData.endDate && formData.startTime && formData.endTime) {
+        const startDate = new Date(`${formData.startDate}T${formData.startTime}`);
+        const endDate = new Date(`${formData.endDate}T${formData.endTime}`);
+        const durationMinutes = Math.round((endDate.getTime() - startDate.getTime()) / 60000);
+
+        if (durationMinutes > 30) {
+          const lessonStructure = await generateLessonStructure(
+            formData.purpose,
+            durationMinutes,
+            false
+          );
+          if (lessonStructure) newSuggestions.push(lessonStructure);
+        }
+      }
+
+      setAiSuggestions(newSuggestions);
+    } catch (error) {
+      console.error('Erro ao gerar sugestões de IA:', error);
+    } finally {
+      setIsLoadingAI(false);
+    }
+  };
+
+  const debouncedGenerateAISuggestions = () => {
+    if (aiDebounceTimer) {
+      clearTimeout(aiDebounceTimer);
+    }
+
+    const timer = setTimeout(() => {
+      generateAISuggestions();
+    }, 1000);
+
+    setAiDebounceTimer(timer);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -266,19 +360,29 @@ const RequestForm = () => {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
-    
-    // Auto-check for conflicts when key fields change
+
     if (requestType === 'individual' && ['resourceId', 'startDate', 'endDate', 'startTime', 'endTime'].includes(field)) {
       debouncedCheckReservationConflict();
     }
-    
-    // Load package resources when package changes
+
     if (field === 'packageId') {
       loadPackageResources(value);
+    }
+
+    if (['purpose', 'resourceId', 'attendees', 'startDate', 'endDate', 'startTime', 'endTime'].includes(field)) {
+      debouncedGenerateAISuggestions();
+    }
+  };
+
+  const handleApplySuggestion = (suggestion: AISuggestion) => {
+    if (suggestion.suggestion_type === 'alternative_room' && suggestion.metadata?.alternative_resources) {
+      const firstAlternative = suggestion.metadata.alternative_resources[0];
+      if (firstAlternative) {
+        handleInputChange('resourceId', firstAlternative.id);
+      }
     }
   };
 
@@ -603,6 +707,18 @@ const RequestForm = () => {
             </div>
           </div>
         </div>
+
+        {/* AI Suggestions Section */}
+        {(aiSuggestions.length > 0 || isLoadingAI) && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Sugestões Inteligentes</h2>
+            <AISuggestionsCard
+              suggestions={aiSuggestions}
+              onApplySuggestion={handleApplySuggestion}
+              loading={isLoadingAI}
+            />
+          </div>
+        )}
 
         {/* Submit Button */}
         <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
