@@ -21,6 +21,9 @@ O sistema de IA oferece:
 
 ### 2. Configurar Variável de Ambiente
 
+**IMPORTANTE**: Para produção, configure a chave no Supabase, não apenas no arquivo `.env` local.
+
+#### Para Desenvolvimento Local:
 1. Abra o arquivo `.env` na raiz do projeto
 2. Adicione a seguinte linha:
    ```
@@ -29,13 +32,29 @@ O sistema de IA oferece:
 3. Salve o arquivo
 4. Reinicie o servidor de desenvolvimento se estiver rodando
 
+#### Para Produção (Supabase):
+1. Acesse o [Supabase Dashboard](https://supabase.com/dashboard)
+2. Selecione seu projeto
+3. Navegue até **Settings** > **Edge Functions** > **Secrets**
+4. Clique em **Add Secret**
+5. Configure:
+   - **Name**: `ANTHROPIC_API_KEY`
+   - **Value**: Sua chave da API (sem o prefixo VITE_)
+6. Clique em **Save**
+7. Aguarde alguns segundos para a variável ser propagada
+
 ### 3. Verificar Configuração
 
 Para verificar se a configuração está correta:
 1. Faça login no sistema
 2. Abra o chat e clique na aba "Assistente IA"
-3. Envie uma mensagem de teste
-4. Se configurado corretamente, você receberá uma resposta
+3. Clique em **"Diagnóstico do Sistema"** (botão amarelo)
+4. Analise o relatório gerado:
+   - ✅ Verde/SUCCESS: Componente funcionando
+   - ⚠️ Amarelo/WARNING: Componente com avisos
+   - ❌ Vermelho/ERROR: Componente com problemas
+5. Se todos os componentes estiverem verdes, envie uma mensagem de teste
+6. Se houver problemas, consulte [AI_TROUBLESHOOTING.md](./AI_TROUBLESHOOTING.md)
 
 ## Funcionalidades
 
@@ -117,9 +136,9 @@ Timeline completa com metodologias, atividades e recursos por etapa.
 - Mensagem de erro se limite for excedido
 
 ### Estimativa de Custos
-O sistema usa o modelo **Claude 3.5 Sonnet** da Anthropic:
-- Input: $0.003 por 1K tokens
-- Output: $0.015 por 1K tokens
+O sistema usa o modelo **Claude Sonnet 4.5** da Anthropic:
+- Input: $3 por 1M tokens
+- Output: $15 por 1M tokens
 
 **Custos aproximados:**
 - Sugestão simples: ~$0.001 - $0.003
@@ -151,23 +170,43 @@ O sistema cria automaticamente as seguintes tabelas:
 
 ## Troubleshooting
 
-### Erro: "Configure a chave de API"
-**Solução:** Adicione `VITE_ANTHROPIC_API_KEY` no arquivo `.env`
+**NOVO**: Sistema de diagnóstico integrado! Use o botão "Diagnóstico do Sistema" no chat para identificar problemas automaticamente.
 
-### Erro: "Rate limit excedido"
-**Solução:** Aguarde 1 minuto antes de fazer nova solicitação
+Para guia completo de solução de problemas, consulte: **[AI_TROUBLESHOOTING.md](./AI_TROUBLESHOOTING.md)**
+
+### Problema: Erro ao conversar com IA
+
+**Solução Rápida:**
+1. Execute o diagnóstico integrado (botão no chat)
+2. Se o erro mencionar "chave de API" ou "ANTHROPIC_API_KEY":
+   - Configure a chave no Supabase (veja seção 2 acima)
+   - Aguarde alguns segundos
+   - Teste novamente
+
+### Erro: "Configure a chave de API"
+**Solução:** Configure `ANTHROPIC_API_KEY` no Supabase Edge Functions (não apenas no `.env` local)
+
+### Erro: "Limite de tokens atingido"
+**Solução:** Sistema atingiu limite mensal (100.000 tokens). Aguarde próximo mês ou aumente o limite no banco de dados.
 
 ### Sugestões não aparecem
 **Possíveis causas:**
 1. Campos obrigatórios não preenchidos (propósito < 10 caracteres)
 2. Aguarde 1 segundo após digitar (debounce)
 3. Verifique console do navegador para erros
+4. Execute diagnóstico integrado
 
 ### Chat de IA não responde
 **Possíveis causas:**
-1. Chave de API inválida ou expirada
-2. Limite de requisições atingido
-3. Erro de rede - verifique conexão
+1. Chave de API não configurada no Supabase (mais comum)
+2. Chave de API inválida ou expirada
+3. Limite de tokens atingido
+4. Erro de rede - verifique conexão
+
+**Como diagnosticar:**
+- Use o botão "Diagnóstico do Sistema" no chat
+- Verifique o console do navegador (F12 > Console)
+- Procure por mensagens com `[AI Service]` ou `[Chat]`
 
 ### Métricas não aparecem no dashboard
 **Solução:**

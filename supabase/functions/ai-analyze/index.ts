@@ -3,7 +3,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const CLAUDE_MODEL = 'claude-3-5-sonnet-20241022';
+const CLAUDE_MODEL = 'claude-sonnet-4-5-20250929';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
