@@ -151,29 +151,37 @@ const RequestForm = () => {
 
     try {
       setIsCheckingConflict(true);
-      const hasConflict = await reservationsService.checkConflict(
+      const conflictInfo = await reservationsService.checkConflict(
         formData.resourceId,
         startDateTime,
         endDateTime
       );
-      
-      if (hasConflict) {
+
+      if (conflictInfo.hasConflict) {
         setErrors(prev => ({
           ...prev,
-          resourceId: 'Este recurso já está reservado para o período selecionado. Escolha outro horário ou recurso.'
+          resourceId: `Este recurso não está disponível para o período selecionado. Disponíveis: ${conflictInfo.availableSlots}/${conflictInfo.totalQuantity} | Reservados: ${conflictInfo.reservedSlots}`
         }));
         return true;
       }
-      
-      // Clear any previous conflict error
+
+      // Clear any previous conflict error and show availability info
       setErrors(prev => {
         const newErrors = { ...prev };
-        if (newErrors.resourceId?.includes('já está reservado')) {
+        if (newErrors.resourceId?.includes('não está disponível') || newErrors.resourceId?.includes('já está reservado')) {
           delete newErrors.resourceId;
         }
         return newErrors;
       });
-      
+
+      // Show availability as positive feedback
+      if (conflictInfo.availableSlots < conflictInfo.totalQuantity) {
+        setErrors(prev => ({
+          ...prev,
+          resourceId: `✅ Disponível! ${conflictInfo.availableSlots} de ${conflictInfo.totalQuantity} slots disponíveis neste horário.`
+        }));
+      }
+
       return false;
     } catch (error) {
       console.error('Error checking reservation conflict:', error);
@@ -297,8 +305,19 @@ const RequestForm = () => {
 
     if (requestType === 'individual') {
       // Check for reservation conflicts for individual resources
-      const hasConflict = await checkReservationConflict();
-      if (hasConflict) return;
+      const conflictInfo = await reservationsService.checkConflict(
+        formData.resourceId,
+        `${formData.startDate}T${formData.startTime}`,
+        `${formData.endDate}T${formData.endTime}`
+      );
+
+      if (conflictInfo.hasConflict) {
+        setErrors(prev => ({
+          ...prev,
+          resourceId: `Este recurso não está disponível. ${conflictInfo.availableSlots} de ${conflictInfo.totalQuantity} disponíveis, ${conflictInfo.reservedSlots} já reservados.`
+        }));
+        return;
+      }
     }
 
     setIsSubmitting(true);

@@ -150,22 +150,27 @@ export const reservationsService = {
   },
 
   async checkConflict(
-    resourceId: string, 
-    startDate: string, 
+    resourceId: string,
+    startDate: string,
     endDate: string,
     excludeReservationId?: string
-  ): Promise<boolean> {
+  ): Promise<{
+    hasConflict: boolean;
+    totalQuantity: number;
+    reservedSlots: number;
+    availableSlots: number;
+  }> {
     console.log('Checking reservation availability for:', { resourceId, startDate, endDate, excludeReservationId });
-    
+
     // First, get the resource to check its quantity
     const resource = await resourcesService.getById(resourceId);
     if (!resource) {
       console.error('Resource not found:', resourceId);
       throw new Error('Recurso não encontrado');
     }
-    
+
     console.log('Resource quantity:', resource.quantity);
-    
+
     // Count existing overlapping reservations
     let query = supabase
       .from('reservations')
@@ -174,30 +179,33 @@ export const reservationsService = {
       .in('status', ['pending', 'approved']) // Only check active reservations
       .lt('start_date', endDate)
       .gt('end_date', startDate); // Check for overlap: start_date < endDate AND end_date > startDate
-    
+
     // Exclude current reservation if editing
     if (excludeReservationId) {
       query = query.neq('id', excludeReservationId);
     }
-    
+
     const { data, error, count } = await query;
-    
+
     if (error) {
       console.error('Error checking reservation conflict:', error);
       throw error;
     }
-    
+
     const overlappingReservationsCount = count || 0;
-    const hasConflict = overlappingReservationsCount >= resource.quantity;
-    
-    console.log('Availability check result:', { 
-      overlappingReservationsCount, 
-      resourceQuantity: resource.quantity,
+    const availableSlots = Math.max(0, resource.quantity - overlappingReservationsCount);
+    const hasConflict = availableSlots <= 0;
+
+    const result = {
       hasConflict,
-      availableSlots: resource.quantity - overlappingReservationsCount
-    });
-    
-    return hasConflict;
+      totalQuantity: resource.quantity,
+      reservedSlots: overlappingReservationsCount,
+      availableSlots
+    };
+
+    console.log('Availability check result:', result);
+
+    return result;
   }
 }
 

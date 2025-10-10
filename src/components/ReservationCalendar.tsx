@@ -39,10 +39,17 @@ const ReservationCalendar = () => {
 
   const getReservationsForDate = (date: Date) => {
     if (!date) return [];
-    
+
     return reservations.filter(reservation => {
-      const reservationDate = new Date(reservation.startDate);
-      return reservationDate.toDateString() === date.toDateString();
+      const reservationStartDate = new Date(reservation.startDate);
+      const reservationEndDate = new Date(reservation.endDate);
+      const checkDate = new Date(date);
+      checkDate.setHours(0, 0, 0, 0);
+      reservationStartDate.setHours(0, 0, 0, 0);
+      reservationEndDate.setHours(0, 0, 0, 0);
+
+      // Check if the date falls within the reservation period
+      return checkDate >= reservationStartDate && checkDate <= reservationEndDate;
     });
   };
 
@@ -170,21 +177,28 @@ const ReservationCalendar = () => {
                       <div className="space-y-1">
                         {dayReservations.slice(0, selectedView === 'week' ? 4 : (window.innerWidth < 640 ? 1 : 2)).map((reservation) => {
                           const resource = resources.find(r => r.id === reservation.resourceId);
+                          const startTime = new Date(reservation.startDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                          const endTime = new Date(reservation.endDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                           return (
                             <div
                               key={reservation.id}
-                              className={`text-xs p-1 rounded text-white truncate ${getStatusColor(reservation.status)}`}
-                              title={`${resource?.name} - ${reservation.purpose}`}
+                              className={`text-xs p-1 rounded text-white truncate ${getStatusColor(reservation.status)} cursor-pointer hover:opacity-80`}
+                              title={`${resource?.name}\n${reservation.purpose}\n${startTime} - ${endTime}\nStatus: ${reservation.status}`}
                             >
-                              <span className="hidden sm:inline">{resource?.name}</span>
-                              <span className="sm:hidden">{resource?.name?.substring(0, 8)}...</span>
+                              <div className="font-medium">
+                                <span className="hidden sm:inline">{resource?.name}</span>
+                                <span className="sm:hidden">{resource?.name?.substring(0, 8)}...</span>
+                              </div>
+                              <div className="text-[10px] opacity-90">
+                                {startTime} - {endTime}
+                              </div>
                             </div>
                           );
                         })}
-                        
+
                         {dayReservations.length > (selectedView === 'week' ? 4 : (window.innerWidth < 640 ? 1 : 2)) && (
-                          <div className="text-xs text-gray-600 text-center">
-                            +{dayReservations.length - (selectedView === 'week' ? 4 : (window.innerWidth < 640 ? 1 : 2))}
+                          <div className="text-xs text-gray-600 text-center font-medium">
+                            +{dayReservations.length - (selectedView === 'week' ? 4 : (window.innerWidth < 640 ? 1 : 2))} mais
                           </div>
                         )}
                       </div>

@@ -2,10 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, MessageCircle, X, User, Shield, Sparkles, Loader } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { useUser } from '../context/UserContext';
+import { useReservation } from '../context/ReservationContext';
 import { sendMessageToAI, getChatContext } from '../services/aiService';
 
 const Chat = () => {
   const { user } = useUser();
+  const { refreshData } = useReservation();
   const {
     messages,
     chatUsers,
@@ -87,10 +89,15 @@ const Chat = () => {
       setAiMessages(updatedHistory);
 
       if (reservationCreated) {
+        // Refresh reservations data to show the new reservation
+        await refreshData();
+
         setTimeout(() => {
-          if (window.confirm('Reserva criada com sucesso! Deseja ver suas reservas no painel?')) {
-            window.location.reload();
-          }
+          const message = user?.role === 'admin'
+            ? 'Reserva criada com sucesso! Ela já está disponível para aprovação no painel.'
+            : 'Reserva criada com sucesso! Você pode acompanhar o status no painel. O administrador irá revisar sua solicitação.';
+
+          alert(message);
         }, 500);
       }
     } catch (error) {

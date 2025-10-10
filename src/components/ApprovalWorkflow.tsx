@@ -114,16 +114,27 @@ const ApprovalWorkflow = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
                       <div className="flex items-center space-x-2">
                         <FileText className="h-4 w-4" />
-                        <span className="truncate">{resource?.name}</span>
+                        <span className="truncate" title={resource?.name}>{resource?.name}</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Calendar className="h-4 w-4" />
-                        <span>{new Date(reservation.startDate).toLocaleDateString()}</span>
+                        <span>
+                          {new Date(reservation.startDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} {new Date(reservation.startDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <User className="h-4 w-4" />
-                        <span>User #{reservation.userId}</span>
+                        <Clock className="h-4 w-4" />
+                        <span>
+                          até {new Date(reservation.endDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500">
+                      <span className="font-medium">ID:</span> {reservation.id.substring(0, 8)}...
+                      {reservation.attendees && (
+                        <span className="ml-3"><span className="font-medium">Participantes:</span> {reservation.attendees}</span>
+                      )}
+                      <span className="ml-3"><span className="font-medium">Criada em:</span> {new Date(reservation.createdAt).toLocaleDateString('pt-BR')} {new Date(reservation.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                   </div>
 

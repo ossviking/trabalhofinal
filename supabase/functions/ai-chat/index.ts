@@ -72,15 +72,34 @@ async function checkReservationConflict(
   startDateTime: string,
   endDateTime: string
 ) {
+  const { data: resource, error: resourceError } = await supabaseClient
+    .from('resources')
+    .select('quantity')
+    .eq('id', resourceId)
+    .single();
+
+  if (resourceError) throw resourceError;
+  if (!resource) throw new Error('Resource not found');
+
   const { data, error } = await supabaseClient
     .from('reservations')
     .select('id')
     .eq('resource_id', resourceId)
-    .eq('status', 'approved')
-    .or(`and(start_date.lte.${endDateTime},end_date.gte.${startDateTime})`);
+    .in('status', ['pending', 'approved'])
+    .lt('start_date', endDateTime)
+    .gt('end_date', startDateTime);
 
   if (error) throw error;
-  return data && data.length > 0;
+
+  const overlappingReservations = data?.length || 0;
+  const availableSlots = resource.quantity - overlappingReservations;
+
+  return {
+    hasConflict: availableSlots <= 0,
+    totalQuantity: resource.quantity,
+    reservedSlots: overlappingReservations,
+    availableSlots: Math.max(0, availableSlots)
+  };
 }
 
 async function createReservation(
@@ -276,28 +295,33 @@ Deno.serve(async (req: Request) => {
         const startDateTime = `${reservationIntent.startDate}T${reservationIntent.startTime}:00`;
         const endDateTime = `${reservationIntent.endDate}T${reservationIntent.endTime}:00`;
 
-        const hasConflict = await checkReservationConflict(
+        const conflictInfo = await checkReservationConflict(
           supabaseClient,
           reservationIntent.resourceId,
           startDateTime,
           endDateTime
         );
 
-        if (hasConflict) {
-          const contextPrompt = `O usuário tentou fazer uma reserva mas há um conflito de horário.
+        if (conflictInfo.hasConflict) {
+          const contextPrompt = `O usuário tentou fazer uma reserva mas não há disponibilidade.
 
 Recurso: ${reservationIntent.resourceName}
 Data/Hora: ${reservationIntent.startDate} ${reservationIntent.startTime} até ${reservationIntent.endDate} ${reservationIntent.endTime}
 
+Disponibilidade:
+- Quantidade total: ${conflictInfo.totalQuantity}
+- Slots reservados: ${conflictInfo.reservedSlots}
+- Slots disponíveis: ${conflictInfo.availableSlots}
+
 Recursos disponíveis:
 ${availableResources.map(r => `- ${r.name} (${r.category}, quantidade: ${r.quantity || 1})`).join('\n')}
 
-Informe o usuário sobre o conflito de forma amigável e sugira:
+Informe o usuário sobre a falta de disponibilidade de forma amigável e sugira:
 1. Escolher outro horário
-2. Escolher um recurso alternativo similar
-3. Perguntar se deseja ver horários disponíveis
+2. Escolher um recurso alternativo similar (mostre opções específicas se possível)
+3. Informar quantos slots estão disponíveis vs reservados
 
-Seja conciso e prestativo.`;
+Seja conciso, prestativo e específico.`;
 
           const claudeResponse = await fetch(ANTHROPIC_API_URL, {
             method: 'POST',
@@ -322,25 +346,44 @@ Seja conciso e prestativo.`;
           totalInputTokens = claudeData.usage.input_tokens;
           totalOutputTokens = claudeData.usage.output_tokens;
         } else {
-          reservationCreated = await createReservation(supabaseClient, user.id, {
-            resourceId: reservationIntent.resourceId,
-            startDate: startDateTime,
-            endDate: endDateTime,
-            purpose: reservationIntent.purpose,
-            attendees: reservationIntent.attendees,
-          });
+          try {
+            console.log('Creating reservation via AI:', {
+              userId: user.id,
+              resourceId: reservationIntent.resourceId,
+              startDate: startDateTime,
+              endDate: endDateTime,
+              purpose: reservationIntent.purpose,
+              attendees: reservationIntent.attendees
+            });
 
-          const resource = availableResources.find(r => r.id === reservationIntent.resourceId);
-          responseText = `✅ Reserva criada com sucesso!
+            reservationCreated = await createReservation(supabaseClient, user.id, {
+              resourceId: reservationIntent.resourceId,
+              startDate: startDateTime,
+              endDate: endDateTime,
+              purpose: reservationIntent.purpose,
+              attendees: reservationIntent.attendees,
+            });
+
+            console.log('Reservation created successfully:', reservationCreated);
+
+            const resource = availableResources.find(r => r.id === reservationIntent.resourceId);
+            responseText = `✅ Reserva criada com sucesso!
 
 📋 Detalhes da reserva:
+- ID: ${reservationCreated.id}
 - Recurso: ${resource?.name || reservationIntent.resourceName}
 - Data: ${reservationIntent.startDate}
 - Horário: ${reservationIntent.startTime} - ${reservationIntent.endTime}
 - Finalidade: ${reservationIntent.purpose}
 ${reservationIntent.attendees ? `- Participantes: ${reservationIntent.attendees}` : ''}
 
-Sua reserva está com status "Pendente" e aguarda aprovação do administrador. Você receberá uma notificação quando for aprovada.`;
+⏳ Sua reserva está com status "Pendente" e aguarda aprovação do administrador.
+
+💡 Você pode acompanhar o status da sua reserva no painel principal. O administrador será notificado e irá revisar sua solicitação em breve.`;
+          } catch (createError) {
+            console.error('Error creating reservation:', createError);
+            throw new Error(`Falha ao criar reserva: ${createError.message}`);
+          }
         }
       } else {
         const contextPrompt = `O usuário quer fazer uma reserva mas faltam algumas informações.
