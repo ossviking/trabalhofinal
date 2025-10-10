@@ -79,12 +79,20 @@ const Chat = () => {
     setIsAITyping(true);
 
     try {
-      const { response, updatedHistory } = await sendMessageToAI(
+      const { response, updatedHistory, reservationCreated } = await sendMessageToAI(
         message,
         aiMessages.map(m => ({ role: m.role, content: m.content }))
       );
 
       setAiMessages(updatedHistory);
+
+      if (reservationCreated) {
+        setTimeout(() => {
+          if (window.confirm('Reserva criada com sucesso! Deseja ver suas reservas no painel?')) {
+            window.location.reload();
+          }
+        }, 500);
+      }
     } catch (error) {
       console.error('Erro ao enviar mensagem para IA:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
@@ -254,9 +262,15 @@ const Chat = () => {
                         </div>
                         <p className="font-medium">Assistente IA</p>
                         <p className="text-xs px-4">
-                          Pergunte sobre disponibilidade de recursos, planejamento de aulas ou sugestões de equipamentos!
+                          Pergunte sobre disponibilidade, faça reservas, ou peça sugestões para suas aulas!
                         </p>
                         <div className="space-y-2 pt-2">
+                          <button
+                            onClick={() => setMessageText('Quero reservar o Laboratório de Informática para amanhã às 14h')}
+                            className="block w-full text-left px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                          >
+                            Quero reservar o Laboratório de Informática para amanhã às 14h
+                          </button>
                           <button
                             onClick={() => setMessageText('Quais salas estão disponíveis hoje?')}
                             className="block w-full text-left px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
@@ -264,10 +278,10 @@ const Chat = () => {
                             Quais salas estão disponíveis hoje?
                           </button>
                           <button
-                            onClick={() => setMessageText('Preciso de equipamento para uma aula prática')}
+                            onClick={() => setMessageText('Preciso reservar equipamento para uma aula prática')}
                             className="block w-full text-left px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                           >
-                            Preciso de equipamento para uma aula prática
+                            Preciso reservar equipamento para uma aula prática
                           </button>
                           <button
                             onClick={() => setMessageText('Como organizar uma aula de laboratório?')}

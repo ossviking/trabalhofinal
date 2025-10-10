@@ -169,7 +169,17 @@ export async function generateLessonStructure(
 export async function sendMessageToAI(
   userMessage: string,
   conversationHistory: Array<{ role: string; content: string }> = []
-): Promise<{ response: string; updatedHistory: Array<{ role: string; content: string; timestamp: string }> }> {
+): Promise<{
+  response: string;
+  updatedHistory: Array<{ role: string; content: string; timestamp: string }>;
+  reservationCreated?: {
+    id: string;
+    resourceId: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+  } | null;
+}> {
   try {
     const result = await callEdgeFunction('ai-chat', {
       message: userMessage,
@@ -180,6 +190,7 @@ export async function sendMessageToAI(
     return {
       response: result.response,
       updatedHistory: result.updatedHistory,
+      reservationCreated: result.reservationCreated || null,
     };
   } catch (error) {
     console.error('Erro ao enviar mensagem para IA:', error);
