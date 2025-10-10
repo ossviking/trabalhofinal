@@ -58,7 +58,7 @@ interface ReservationIntent {
 async function getAvailableResources(supabaseClient: any) {
   const { data, error } = await supabaseClient
     .from('resources')
-    .select('id, name, category, description, location, capacity, status')
+    .select('id, name, category, description, location, status, quantity')
     .eq('status', 'available')
     .order('name');
 
@@ -119,7 +119,7 @@ async function analyzeReservationIntent(
   availableResources: any[]
 ): Promise<ReservationIntent> {
   const resourcesList = availableResources
-    .map(r => `- ${r.name} (${r.category}, capacidade: ${r.capacity || 'N/A'}, localização: ${r.location || 'N/A'})`)
+    .map(r => `- ${r.name} (${r.category}, quantidade disponível: ${r.quantity || 1}, localização: ${r.location || 'N/A'})`)
     .join('\n');
 
   const analysisPrompt = `Analise a seguinte mensagem do usuário e determine se ele está tentando fazer uma reserva de recurso.
@@ -290,7 +290,7 @@ Recurso: ${reservationIntent.resourceName}
 Data/Hora: ${reservationIntent.startDate} ${reservationIntent.startTime} até ${reservationIntent.endDate} ${reservationIntent.endTime}
 
 Recursos disponíveis:
-${availableResources.map(r => `- ${r.name} (${r.category}, capacidade: ${r.capacity || 'N/A'})`).join('\n')}
+${availableResources.map(r => `- ${r.name} (${r.category}, quantidade: ${r.quantity || 1})`).join('\n')}
 
 Informe o usuário sobre o conflito de forma amigável e sugira:
 1. Escolher outro horário
@@ -357,7 +357,7 @@ Informações coletadas:
 Informações faltantes: ${missingInfo.join(', ')}
 
 Recursos disponíveis:
-${availableResources.map(r => `- ${r.name} (${r.category}, capacidade: ${r.capacity || 'N/A'})`).join('\n')}
+${availableResources.map(r => `- ${r.name} (${r.category}, quantidade: ${r.quantity || 1})`).join('\n')}
 
 Mensagem do usuário: "${message}"
 
@@ -388,7 +388,7 @@ Peça as informações faltantes de forma natural e amigável. Se o usuário nã
       }
     } else {
       const resourcesList = availableResources
-        .map(r => `- ${r.name} (${r.category}, ${r.location || 'localização não especificada'}, capacidade: ${r.capacity || 'N/A'})`)
+        .map(r => `- ${r.name} (${r.category}, ${r.location || 'localização não especificada'}, quantidade: ${r.quantity || 1})`)
         .slice(0, 10)
         .join('\n');
 
