@@ -64,45 +64,15 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             // Check if profile exists by email
             const existingProfile = await usersService.getProfileByEmail((supabaseUser.email || '').toLowerCase());
             if (existingProfile) {
-              // Profile exists with different ID - attempt to fix automatically
-              console.warn('DATA INCONSISTENCY DETECTED - Attempting automatic fix:');
-              console.warn(`User profile exists with email ${existingProfile.email} but different ID:`);
-              console.warn(`Database profile ID: ${existingProfile.id}`);
-              console.warn(`Supabase Auth user ID: ${supabaseUser.id}`);
-              
-              try {
-                // Try to update the existing profile with the correct ID
-                console.log('Attempting to fix user ID inconsistency...');
-                const updatedProfile = await usersService.updateProfile(existingProfile.id, {
-                  id: supabaseUser.id
-                });
-                
-                console.log('User ID inconsistency fixed successfully:', updatedProfile);
-                setUser({
-                  id: updatedProfile.id,
-                  name: updatedProfile.name,
-                  email: updatedProfile.email,
-                  role: updatedProfile.role,
-                  department: updatedProfile.department
-                });
-              } catch (updateError) {
-                console.error('Failed to fix user ID inconsistency automatically:', updateError);
-                console.error('MANUAL FIX REQUIRED:');
-                console.error('1. Go to your Supabase dashboard');
-                console.error('2. Open Table Editor > users table');
-                console.error(`3. Find the row with email: ${existingProfile.email}`);
-                console.error(`4. Update the "id" field to: ${supabaseUser.id}`);
-                console.error('5. OR delete the row and try logging in again');
-                
-                // Force complete logout to clean session and prevent further errors
-                setUser(null);
-                try {
-                  await supabaseSignOut();
-                  console.log('User signed out due to unfixable data inconsistency');
-                } catch (signOutError) {
-                  console.error('Error signing out user:', signOutError);
-                }
-              }
+              // Profile exists - just use it
+              console.log('UserContext: Found existing profile, using it');
+              setUser({
+                id: existingProfile.id,
+                name: existingProfile.name,
+                email: existingProfile.email,
+                role: existingProfile.role,
+                department: existingProfile.department
+              });
             } else {
               // Create profile if it doesn't exist
               const profileData = {
