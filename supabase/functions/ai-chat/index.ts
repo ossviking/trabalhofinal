@@ -161,7 +161,7 @@ Responda APENAS com um JSON no seguinte formato (sem texto adicional):
   "missingInfo": ["lista", "de", "informações", "faltantes"]
 }
 
-Considere hasIntent=true se o usuário:
+Considera hasIntent=true se o usuário:
 - Pedir para reservar/agendar algo
 - Mencionar que precisa de uma sala/equipamento para uma data
 - Perguntar sobre disponibilidade com intenção de reservar
