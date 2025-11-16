@@ -6,7 +6,7 @@ import { passwordResetRequestsService } from '../services/database';
 
 const LoginAdministrador = () => {
   const navigate = useNavigate();
-  const { signIn, user, loading } = useUser();
+  const { signIn, signOut, user, loading } = useUser();
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
@@ -16,6 +16,8 @@ const LoginAdministrador = () => {
     password: ''
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionCleared, setSessionCleared] = useState(false);
+  const [loginAttempted, setLoginAttempted] = useState(false);
 
   // Limpar sessão existente quando componente carrega
   useEffect(() => {
@@ -24,30 +26,33 @@ const LoginAdministrador = () => {
         console.log('Limpando sessão existente para forçar novo login de admin');
         await signOut();
       }
+      setSessionCleared(true);
     };
     clearExistingSession();
-  }, []);
+  }, [user, signOut]);
 
-  // Navigate to dashboard when user is successfully logged in and profile is loaded
+  // Navigate to dashboard ONLY after successful login attempt
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && user && loginAttempted) {
       console.log('Admin user logged in successfully, navigating to dashboard');
       navigate('/');
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, loginAttempted]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setLoginAttempted(true);
 
     try {
       console.log('Tentando fazer login como admin com:', formData.email);
       const { error } = await signIn(formData.email, formData.password);
-      
+
       if (error) {
         console.error('Erro detalhado do Supabase:', error);
         alert('Erro no login: ' + error.message);
         setIsLoading(false);
+        setLoginAttempted(false);
       } else {
         console.log('Login de admin bem-sucedido!');
         // Navigation will be handled by useEffect when user state is updated
@@ -56,6 +61,7 @@ const LoginAdministrador = () => {
       console.error('Erro geral no handleSubmit:', error);
       alert('Erro no login. Tente novamente.');
       setIsLoading(false);
+      setLoginAttempted(false);
     }
   };
 
