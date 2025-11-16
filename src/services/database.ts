@@ -306,12 +306,25 @@ export const usersService = {
   },
 
   async getAll(): Promise<UserProfile[]> {
+    console.log('usersService.getAll: Starting query...');
+
     const { data, error } = await supabase
       .from('users')
       .select('*')
       .order('name')
-    
-    if (error) throw error
+
+    if (error) {
+      console.error('usersService.getAll: Supabase error:', error);
+      console.error('usersService.getAll: Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      throw error;
+    }
+
+    console.log('usersService.getAll: Query successful, rows:', data?.length || 0);
     return data || []
   }
 }

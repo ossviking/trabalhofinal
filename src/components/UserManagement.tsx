@@ -23,8 +23,17 @@ const UserManagement = () => {
     const loadUsers = async () => {
       try {
         setLoading(true);
+        console.log('Starting to load users...');
+
         const usersData = await usersService.getAll();
-        
+        console.log('Users loaded successfully:', usersData);
+
+        if (!usersData || usersData.length === 0) {
+          console.warn('No users found in database');
+          setUsers([]);
+          return;
+        }
+
         // Transform database users to match component expectations
         const transformedUsers = usersData.map(user => ({
           id: user.id,
@@ -32,16 +41,23 @@ const UserManagement = () => {
           email: user.email,
           role: user.role,
           department: user.department,
-          joinDate: user.created_at.split('T')[0], // Convert to date string
-          lastLogin: user.updated_at.split('T')[0], // Use updated_at as proxy for last login
-          status: 'active', // Default status since we don't have this field in DB
-          reservations: 0 // TODO: Calculate actual reservation count
+          joinDate: user.created_at.split('T')[0],
+          lastLogin: user.updated_at.split('T')[0],
+          status: 'active',
+          reservations: 0
         }));
-        
+
+        console.log('Users transformed:', transformedUsers);
         setUsers(transformedUsers);
-      } catch (error) {
-        console.error('Error loading users:', error);
-        alert('Erro ao carregar usuários. Tente novamente.');
+      } catch (error: any) {
+        console.error('Error loading users - Full error:', error);
+        console.error('Error message:', error?.message);
+        console.error('Error details:', error?.details);
+        console.error('Error hint:', error?.hint);
+        console.error('Error code:', error?.code);
+
+        const errorMessage = error?.message || 'Erro desconhecido ao carregar usuários';
+        alert(`Erro ao carregar usuários: ${errorMessage}\n\nVerifique o console para mais detalhes.`);
       } finally {
         setLoading(false);
       }
