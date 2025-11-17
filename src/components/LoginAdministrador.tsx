@@ -50,16 +50,35 @@ const LoginAdministrador = () => {
 
       if (error) {
         console.error('Erro detalhado do Supabase:', error);
-        alert('Erro no login: ' + error.message);
+        let errorMessage = 'Erro no login: ';
+
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Email ou senha incorretos. Verifique suas credenciais.';
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Email não confirmado. Verifique seu email.';
+        } else if (error.message.includes('schema') || error.message.includes('Database')) {
+          errorMessage = 'Erro de conexão com o banco de dados. Tente novamente em alguns instantes.';
+        } else {
+          errorMessage += error.message;
+        }
+
+        alert(errorMessage);
         setIsLoading(false);
         setLoginAttempted(false);
       } else {
         console.log('Login de admin bem-sucedido!');
-        // Navigation will be handled by useEffect when user state is updated
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro geral no handleSubmit:', error);
-      alert('Erro no login. Tente novamente.');
+      let errorMessage = 'Erro no login. ';
+
+      if (error?.message?.includes('schema') || error?.message?.includes('Database')) {
+        errorMessage += 'Problema de conexão com o banco de dados. Tente novamente.';
+      } else {
+        errorMessage += 'Tente novamente.';
+      }
+
+      alert(errorMessage);
       setIsLoading(false);
       setLoginAttempted(false);
     }

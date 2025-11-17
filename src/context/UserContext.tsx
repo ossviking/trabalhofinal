@@ -107,7 +107,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           console.error('UserContext: Error loading user profile:', error);
           console.error('UserContext: Error message:', error?.message);
           console.error('UserContext: Error code:', error?.code);
-          // If there's an error loading/creating profile, set user to null
+
+          if (error?.code === 'PGRST301') {
+            console.log('RLS policy issue - user may need to re-authenticate');
+          } else if (error?.message?.includes('schema')) {
+            console.log('Database schema issue detected, but user auth is valid');
+          }
+
           setUser(null);
         } finally {
           setProfileLoading(false);

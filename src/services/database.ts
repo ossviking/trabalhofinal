@@ -267,6 +267,17 @@ export const usersService = {
 
       if (error) {
         console.error('usersService.getProfile: Error fetching profile:', error);
+
+        if (error.code === 'PGRST116') {
+          console.log('Profile not found for user:', userId);
+          return null;
+        }
+
+        if (error.code === 'PGRST301') {
+          console.error('RLS policy blocking access for user:', userId);
+          return null;
+        }
+
         throw error;
       }
 
@@ -274,6 +285,9 @@ export const usersService = {
       return data;
     } catch (err: any) {
       console.error('usersService.getProfile: Unexpected error:', err);
+      if (err?.code === 'PGRST116' || err?.code === 'PGRST301') {
+        return null;
+      }
       throw err;
     }
   },
@@ -290,6 +304,17 @@ export const usersService = {
 
       if (error) {
         console.error('usersService.getProfileByEmail: Error fetching profile:', error);
+
+        if (error.code === 'PGRST116') {
+          console.log('Profile not found for email:', email);
+          return null;
+        }
+
+        if (error.code === 'PGRST301') {
+          console.error('RLS policy blocking access for email:', email);
+          return null;
+        }
+
         throw error;
       }
 
@@ -297,6 +322,9 @@ export const usersService = {
       return data;
     } catch (err: any) {
       console.error('usersService.getProfileByEmail: Unexpected error:', err);
+      if (err?.code === 'PGRST116' || err?.code === 'PGRST301') {
+        return null;
+      }
       throw err;
     }
   },
@@ -346,14 +374,24 @@ export const usersService = {
           hint: error.hint,
           code: error.code
         });
-        throw new Error(`Database error querying schema: ${error.message}`);
+
+        if (error.code === 'PGRST301') {
+          console.error('RLS policy blocking access - user may not have permission');
+          return [];
+        }
+
+        throw error;
       }
 
       console.log('usersService.getAll: Query successful, rows:', data?.length || 0);
       return data || []
     } catch (err: any) {
       console.error('usersService.getAll: Unexpected error:', err);
-      throw new Error(`Database error querying schema: ${err?.message || 'Unknown error'}`);
+      if (err?.code === 'PGRST301' || err?.message?.includes('permission')) {
+        console.log('Returning empty array due to permission error');
+        return [];
+      }
+      throw err;
     }
   }
 }
