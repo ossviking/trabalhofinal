@@ -10,6 +10,7 @@ const UserManagement = () => {
   const [selectedRole, setSelectedRole] = useState('all');
   const [showAddUser, setShowAddUser] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorInfo, setErrorInfo] = useState<string | null>(null);
   const [newUserData, setNewUserData] = useState({
     name: '',
     email: '',
@@ -23,13 +24,29 @@ const UserManagement = () => {
     const loadUsers = async () => {
       try {
         setLoading(true);
-        console.log('Starting to load users...');
+        console.log('UserManagement: Starting to load users...');
+        console.log('UserManagement: Supabase client initialized:', !!supabase);
+
+        // Check if user is authenticated
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error('UserManagement: Session error:', sessionError);
+          throw new Error(`Erro de autenticação: ${sessionError.message}`);
+        }
+
+        if (!session) {
+          console.error('UserManagement: No active session found');
+          throw new Error('Você precisa estar autenticado para ver os usuários');
+        }
+
+        console.log('UserManagement: User authenticated, loading users from database...');
 
         const usersData = await usersService.getAll();
-        console.log('Users loaded successfully:', usersData);
+        console.log('UserManagement: Users loaded successfully:', usersData);
 
         if (!usersData || usersData.length === 0) {
-          console.warn('No users found in database');
+          console.warn('UserManagement: No users found in database');
           setUsers([]);
           return;
         }
@@ -47,17 +64,21 @@ const UserManagement = () => {
           reservations: 0
         }));
 
-        console.log('Users transformed:', transformedUsers);
+        console.log('UserManagement: Users transformed:', transformedUsers);
         setUsers(transformedUsers);
       } catch (error: any) {
-        console.error('Error loading users - Full error:', error);
-        console.error('Error message:', error?.message);
-        console.error('Error details:', error?.details);
-        console.error('Error hint:', error?.hint);
-        console.error('Error code:', error?.code);
+        console.error('UserManagement: Error loading users - Full error:', error);
+        console.error('UserManagement: Error message:', error?.message);
+        console.error('UserManagement: Error details:', error?.details);
+        console.error('UserManagement: Error hint:', error?.hint);
+        console.error('UserManagement: Error code:', error?.code);
+        console.error('UserManagement: Error stack:', error?.stack);
 
         const errorMessage = error?.message || 'Erro desconhecido ao carregar usuários';
-        alert(`Erro ao carregar usuários: ${errorMessage}\n\nVerifique o console para mais detalhes.`);
+        const detailedError = `${errorMessage}\n\nDetalhes técnicos:\n- Código: ${error?.code || 'N/A'}\n- Dica: ${error?.hint || 'N/A'}\n\nVerifique o console para mais informações.`;
+
+        setErrorInfo(detailedError);
+        setUsers([]);
       } finally {
         setLoading(false);
       }
@@ -274,6 +295,29 @@ const UserManagement = () => {
         </div>
       </div>
 
+      {/* Error State */}
+      {errorInfo && !loading && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-8">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className="text-sm font-medium text-red-800">Erro ao Carregar Usuários</h3>
+              <div className="mt-2 text-sm text-red-700 whitespace-pre-wrap">{errorInfo}</div>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200"
+              >
+                Recarregar Página
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Loading State */}
       {loading && (
         <div className="text-center py-12">
@@ -283,7 +327,7 @@ const UserManagement = () => {
       )}
 
       {/* Users Table */}
-      {!loading && (
+      {!loading && !errorInfo && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -382,10 +426,24 @@ const UserManagement = () => {
         </div>
       )}
 
-      {!loading && filteredUsers.length === 0 && (
+      {!loading && filteredUsers.length === 0 && users.length === 0 && (
         <div className="text-center py-12">
           <User className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum usuário encontrado</h3>
+          <p className="text-gray-600 mb-4">Não há usuários cadastrados no sistema ainda.</p>
+          <button
+            onClick={() => setShowAddUser(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+          >
+            Adicionar Primeiro Usuário
+          </button>
+        </div>
+      )}
+
+      {!loading && filteredUsers.length === 0 && users.length > 0 && (
+        <div className="text-center py-12">
+          <User className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum resultado encontrado</h3>
           <p className="text-gray-600">Tente ajustar seus critérios de busca</p>
         </div>
       )}

@@ -256,25 +256,49 @@ export const maintenanceService = {
 // User Profiles
 export const usersService = {
   async getProfile(userId: string): Promise<UserProfile | null> {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle()
-    
-    if (error) throw error
-    return data
+    try {
+      console.log('usersService.getProfile: Fetching profile for userId:', userId);
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle()
+
+      if (error) {
+        console.error('usersService.getProfile: Error fetching profile:', error);
+        throw error;
+      }
+
+      console.log('usersService.getProfile: Profile fetched:', data ? 'found' : 'not found');
+      return data;
+    } catch (err: any) {
+      console.error('usersService.getProfile: Unexpected error:', err);
+      throw err;
+    }
   },
 
   async getProfileByEmail(email: string): Promise<UserProfile | null> {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email.toLowerCase())
-      .maybeSingle()
-    
-    if (error) throw error
-    return data
+    try {
+      console.log('usersService.getProfileByEmail: Fetching profile for email:', email);
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email.toLowerCase())
+        .maybeSingle()
+
+      if (error) {
+        console.error('usersService.getProfileByEmail: Error fetching profile:', error);
+        throw error;
+      }
+
+      console.log('usersService.getProfileByEmail: Profile fetched:', data ? 'found' : 'not found');
+      return data;
+    } catch (err: any) {
+      console.error('usersService.getProfileByEmail: Unexpected error:', err);
+      throw err;
+    }
   },
 
   async createProfile(profile: Tables['users']['Insert']): Promise<UserProfile> {
@@ -306,26 +330,31 @@ export const usersService = {
   },
 
   async getAll(): Promise<UserProfile[]> {
-    console.log('usersService.getAll: Starting query...');
+    try {
+      console.log('usersService.getAll: Starting query...');
 
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .order('name')
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('name')
 
-    if (error) {
-      console.error('usersService.getAll: Supabase error:', error);
-      console.error('usersService.getAll: Error details:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      });
-      throw error;
+      if (error) {
+        console.error('usersService.getAll: Supabase error:', error);
+        console.error('usersService.getAll: Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw new Error(`Database error querying schema: ${error.message}`);
+      }
+
+      console.log('usersService.getAll: Query successful, rows:', data?.length || 0);
+      return data || []
+    } catch (err: any) {
+      console.error('usersService.getAll: Unexpected error:', err);
+      throw new Error(`Database error querying schema: ${err?.message || 'Unknown error'}`);
     }
-
-    console.log('usersService.getAll: Query successful, rows:', data?.length || 0);
-    return data || []
   }
 }
 

@@ -45,14 +45,20 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   useEffect(() => {
     const loadUserProfile = async () => {
       // Only start loading profile if auth loading is complete
-      if (authLoading) return;
-      
+      if (authLoading) {
+        console.log('UserContext: Auth still loading, skipping profile load');
+        return;
+      }
+
       setProfileLoading(true);
       if (supabaseUser) {
         try {
+          console.log('UserContext: Loading profile for user:', supabaseUser.id);
+
           // First check if profile exists, if not create it
           let profile = await usersService.getProfile(supabaseUser.id);
           if (profile) {
+            console.log('UserContext: Profile found by ID:', profile);
             setUser({
               id: profile.id,
               name: profile.name,
@@ -61,11 +67,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
               department: profile.department
             });
           } else {
+            console.log('UserContext: Profile not found by ID, checking by email');
             // Check if profile exists by email
             const existingProfile = await usersService.getProfileByEmail((supabaseUser.email || '').toLowerCase());
             if (existingProfile) {
               // Profile exists - just use it
-              console.log('UserContext: Found existing profile, using it');
+              console.log('UserContext: Found existing profile by email, using it:', existingProfile);
               setUser({
                 id: existingProfile.id,
                 name: existingProfile.name,
@@ -75,6 +82,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
               });
             } else {
               // Create profile if it doesn't exist
+              console.log('UserContext: No profile found, creating new one');
               const profileData = {
                 id: supabaseUser.id,
                 email: (supabaseUser.email || '').toLowerCase(),
@@ -82,7 +90,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
                 role: (supabaseUser.email?.toLowerCase().includes('miguel.oliveira') ? 'admin' : 'student') as 'student' | 'faculty' | 'admin',
                 department: supabaseUser.user_metadata?.department || 'Geral'
               };
-              
+
               console.log('UserContext: Creating new profile with data:', profileData);
               const newProfile = await usersService.createProfile(profileData);
               console.log('UserContext: Profile created successfully:', newProfile);
@@ -95,14 +103,17 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
               });
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('UserContext: Error loading user profile:', error);
+          console.error('UserContext: Error message:', error?.message);
+          console.error('UserContext: Error code:', error?.code);
           // If there's an error loading/creating profile, set user to null
           setUser(null);
         } finally {
           setProfileLoading(false);
         }
       } else {
+        console.log('UserContext: No supabaseUser, clearing user state');
         setUser(null);
         setProfileLoading(false);
       }
