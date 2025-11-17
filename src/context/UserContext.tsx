@@ -44,21 +44,20 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   // Load user profile when Supabase user changes
   useEffect(() => {
     const loadUserProfile = async () => {
-      // Only start loading profile if auth loading is complete
       if (authLoading) {
-        console.log('UserContext: Auth still loading, skipping profile load');
         return;
       }
 
       setProfileLoading(true);
+
       if (supabaseUser) {
         try {
-          console.log('UserContext: Loading profile for user:', supabaseUser.id);
+          console.log('UserContext: Loading profile for user:', supabaseUser.id, supabaseUser.email);
 
-          // First check if profile exists, if not create it
           let profile = await usersService.getProfile(supabaseUser.id);
+
           if (profile) {
-            console.log('UserContext: Profile found by ID:', profile);
+            console.log('UserContext: Profile found:', profile.email, profile.role);
             setUser({
               id: profile.id,
               name: profile.name,
@@ -67,12 +66,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
               department: profile.department
             });
           } else {
-            console.log('UserContext: Profile not found by ID, checking by email');
-            // Check if profile exists by email
+            console.log('UserContext: Profile not found for ID, checking by email');
             const existingProfile = await usersService.getProfileByEmail((supabaseUser.email || '').toLowerCase());
+
             if (existingProfile) {
-              // Profile exists - just use it
-              console.log('UserContext: Found existing profile by email, using it:', existingProfile);
+              console.log('UserContext: Found profile by email:', existingProfile.email);
               setUser({
                 id: existingProfile.id,
                 name: existingProfile.name,
@@ -81,45 +79,18 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
                 department: existingProfile.department
               });
             } else {
-              // Create profile if it doesn't exist
-              console.log('UserContext: No profile found, creating new one');
-              const profileData = {
-                id: supabaseUser.id,
-                email: (supabaseUser.email || '').toLowerCase(),
-                name: supabaseUser.user_metadata?.name || 'Usuário',
-                role: (supabaseUser.email?.toLowerCase().includes('miguel.oliveira') ? 'admin' : 'student') as 'student' | 'faculty' | 'admin',
-                department: supabaseUser.user_metadata?.department || 'Geral'
-              };
-
-              console.log('UserContext: Creating new profile with data:', profileData);
-              const newProfile = await usersService.createProfile(profileData);
-              console.log('UserContext: Profile created successfully:', newProfile);
-              setUser({
-                id: newProfile.id,
-                name: newProfile.name,
-                email: newProfile.email,
-                role: newProfile.role,
-                department: newProfile.department
-              });
+              console.log('UserContext: No profile found - trigger should have created one. Waiting for sync...');
+              setUser(null);
             }
           }
         } catch (error: any) {
-          console.error('UserContext: Error loading user profile:', error);
-          console.error('UserContext: Error message:', error?.message);
-          console.error('UserContext: Error code:', error?.code);
-
-          if (error?.code === 'PGRST301') {
-            console.log('RLS policy issue - user may need to re-authenticate');
-          } else if (error?.message?.includes('schema')) {
-            console.log('Database schema issue detected, but user auth is valid');
-          }
-
+          console.error('UserContext: Error loading profile:', error);
           setUser(null);
         } finally {
           setProfileLoading(false);
         }
       } else {
-        console.log('UserContext: No supabaseUser, clearing user state');
+        console.log('UserContext: No authenticated user');
         setUser(null);
         setProfileLoading(false);
       }

@@ -16,71 +16,41 @@ const LoginSolicitante = () => {
     password: ''
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionCleared, setSessionCleared] = useState(false);
-  const [loginAttempted, setLoginAttempted] = useState(false);
 
-  // Limpar sessão existente quando componente carrega
   useEffect(() => {
-    const clearExistingSession = async () => {
-      if (user) {
-        console.log('Limpando sessão existente para forçar novo login');
-        await signOut();
-      }
-      setSessionCleared(true);
-    };
-    clearExistingSession();
-  }, [user, signOut]);
-
-  // Navigate to dashboard ONLY after successful login attempt
-  useEffect(() => {
-    if (!loading && user && loginAttempted) {
-      console.log('User logged in successfully, navigating to dashboard');
+    if (!loading && user) {
+      console.log('User already logged in, redirecting to dashboard');
       navigate('/');
     }
-  }, [user, loading, navigate, loginAttempted]);
+  }, [user, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setLoginAttempted(true);
 
     try {
-      console.log('Tentando fazer login com:', formData.email);
+      console.log('Attempting login with:', formData.email);
       const { error } = await signIn(formData.email, formData.password);
 
       if (error) {
-        console.error('Erro detalhado do Supabase:', error);
+        console.error('Supabase auth error:', error);
         let errorMessage = 'Erro no login: ';
 
         if (error.message.includes('Invalid login credentials')) {
           errorMessage = 'Email ou senha incorretos. Verifique suas credenciais.';
         } else if (error.message.includes('Email not confirmed')) {
-          errorMessage = 'Email não confirmado. Verifique seu email.';
-        } else if (error.message.includes('schema') || error.message.includes('Database')) {
-          errorMessage = 'Erro de conexão com o banco de dados. Tente novamente em alguns instantes.';
+          errorMessage = 'Email não confirmado.';
         } else {
           errorMessage += error.message;
         }
 
         alert(errorMessage);
         setIsLoading(false);
-        setLoginAttempted(false);
-      } else {
-        console.log('Login bem-sucedido!');
       }
     } catch (error: any) {
-      console.error('Erro geral no handleSubmit:', error);
-      let errorMessage = 'Erro no login. ';
-
-      if (error?.message?.includes('schema') || error?.message?.includes('Database')) {
-        errorMessage += 'Problema de conexão com o banco de dados. Tente novamente.';
-      } else {
-        errorMessage += 'Tente novamente.';
-      }
-
-      alert(errorMessage);
+      console.error('Login error:', error);
+      alert('Erro ao fazer login. Tente novamente.');
       setIsLoading(false);
-      setLoginAttempted(false);
     }
   };
 
