@@ -51,21 +51,29 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setProfileLoading(true);
 
       if (supabaseUser) {
-        try {
-          console.log('UserContext: Loading profile for user:', supabaseUser.id, supabaseUser.email);
+        let retryCount = 0;
+        const maxRetries = 3;
+        const retryDelay = 1000;
 
-          let profile = await usersService.getProfile(supabaseUser.id);
+        while (retryCount < maxRetries) {
+          try {
+            console.log(`UserContext: Loading profile for user (attempt ${retryCount + 1}/${maxRetries}):`, supabaseUser.id, supabaseUser.email);
 
-          if (profile) {
-            console.log('UserContext: Profile found:', profile.email, profile.role);
-            setUser({
-              id: profile.id,
-              name: profile.name,
-              email: profile.email,
-              role: profile.role,
-              department: profile.department
-            });
-          } else {
+            let profile = await usersService.getProfile(supabaseUser.id);
+
+            if (profile) {
+              console.log('UserContext: Profile found:', profile.email, profile.role);
+              setUser({
+                id: profile.id,
+                name: profile.name,
+                email: profile.email,
+                role: profile.role,
+                department: profile.department
+              });
+              setProfileLoading(false);
+              return;
+            }
+
             console.log('UserContext: Profile not found for ID, checking by email');
             const existingProfile = await usersService.getProfileByEmail((supabaseUser.email || '').toLowerCase());
 
@@ -78,17 +86,37 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
                 role: existingProfile.role,
                 department: existingProfile.department
               });
+              setProfileLoading(false);
+              return;
+            }
+
+            console.log('UserContext: No profile found on attempt', retryCount + 1);
+
+            if (retryCount < maxRetries - 1) {
+              console.log(`UserContext: Waiting ${retryDelay}ms before retry...`);
+              await new Promise(resolve => setTimeout(resolve, retryDelay));
+            }
+
+            retryCount++;
+          } catch (error: any) {
+            console.error(`UserContext: Error loading profile (attempt ${retryCount + 1}):`, error);
+
+            if (retryCount < maxRetries - 1) {
+              console.log(`UserContext: Retrying after error in ${retryDelay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, retryDelay));
+              retryCount++;
             } else {
-              console.log('UserContext: No profile found - trigger should have created one. Waiting for sync...');
+              console.error('UserContext: Max retries reached, giving up');
               setUser(null);
+              setProfileLoading(false);
+              return;
             }
           }
-        } catch (error: any) {
-          console.error('UserContext: Error loading profile:', error);
-          setUser(null);
-        } finally {
-          setProfileLoading(false);
         }
+
+        console.log('UserContext: Profile not found after all retries - trigger may need time to sync');
+        setUser(null);
+        setProfileLoading(false);
       } else {
         console.log('UserContext: No authenticated user');
         setUser(null);

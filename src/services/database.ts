@@ -266,25 +266,36 @@ export const usersService = {
         .maybeSingle()
 
       if (error) {
-        console.error('usersService.getProfile: Error fetching profile:', error);
+        console.error('usersService.getProfile: Supabase error:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
 
         if (error.code === 'PGRST116') {
-          console.log('Profile not found for user:', userId);
+          console.log('usersService.getProfile: Profile not found (PGRST116) for user:', userId);
           return null;
         }
 
         if (error.code === 'PGRST301') {
-          console.error('RLS policy blocking access for user:', userId);
+          console.error('usersService.getProfile: RLS policy error (PGRST301) - checking session...');
+          const { data: { session } } = await supabase.auth.getSession();
+          console.log('Current session:', session ? 'exists' : 'missing', session?.user?.id);
           return null;
         }
 
         throw error;
       }
 
-      console.log('usersService.getProfile: Profile fetched:', data ? 'found' : 'not found');
+      console.log('usersService.getProfile: Success -', data ? `found profile for ${data.email}` : 'no profile found');
       return data;
     } catch (err: any) {
-      console.error('usersService.getProfile: Unexpected error:', err);
+      console.error('usersService.getProfile: Unexpected error:', {
+        name: err?.name,
+        message: err?.message,
+        code: err?.code
+      });
       if (err?.code === 'PGRST116' || err?.code === 'PGRST301') {
         return null;
       }
@@ -303,25 +314,36 @@ export const usersService = {
         .maybeSingle()
 
       if (error) {
-        console.error('usersService.getProfileByEmail: Error fetching profile:', error);
+        console.error('usersService.getProfileByEmail: Supabase error:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
 
         if (error.code === 'PGRST116') {
-          console.log('Profile not found for email:', email);
+          console.log('usersService.getProfileByEmail: Profile not found (PGRST116) for email:', email);
           return null;
         }
 
         if (error.code === 'PGRST301') {
-          console.error('RLS policy blocking access for email:', email);
+          console.error('usersService.getProfileByEmail: RLS policy error (PGRST301)');
+          const { data: { session } } = await supabase.auth.getSession();
+          console.log('Current session:', session ? 'exists' : 'missing', session?.user?.email);
           return null;
         }
 
         throw error;
       }
 
-      console.log('usersService.getProfileByEmail: Profile fetched:', data ? 'found' : 'not found');
+      console.log('usersService.getProfileByEmail: Success -', data ? `found profile for ${data.email}` : 'no profile found');
       return data;
     } catch (err: any) {
-      console.error('usersService.getProfileByEmail: Unexpected error:', err);
+      console.error('usersService.getProfileByEmail: Unexpected error:', {
+        name: err?.name,
+        message: err?.message,
+        code: err?.code
+      });
       if (err?.code === 'PGRST116' || err?.code === 'PGRST301') {
         return null;
       }
